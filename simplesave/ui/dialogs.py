@@ -1,5 +1,7 @@
-"""Dialogs: new tag (name + color), import preview, simple confirm."""
+"""Dialogs: new tag (name + color), preferences, simple confirm."""
 from __future__ import annotations
+
+from typing import Callable, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -10,9 +12,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
+
+from simplesave import theme as theme_module
 
 
 # Carbon-derived palette. Distinct enough at a glance that two adjacent tags
@@ -136,3 +141,122 @@ class NewTagDialog(QDialog):
 
     def get_result(self) -> tuple[str, str]:
         return self._name_edit.text().strip(), self._color.name()
+
+
+class PreferencesDialog(QDialog):
+    """Font size + per-theme text color, applied live.
+
+    There's no OK/Cancel: every change writes straight into the shared
+    `prefs` dict and fires `on_change` immediately so the window behind
+    this dialog updates as you pick, same spirit as the theme toggle.
+    "Done" just closes it.
+    """
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        prefs: dict,
+        on_change: Optional[Callable[[], None]] = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Preferences")
+        self.setMinimumWidth(400)
+        self._prefs = prefs
+        self._on_change = on_change
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        heading = QLabel("Appearance")
+        heading.setProperty("role", "heading")
+        layout.addWidget(heading)
+
+        font_row = QHBoxLayout()
+        font_row.setSpacing(8)
+        font_row.addWidget(QLabel("Font size"))
+        font_row.addStretch(1)
+        self._font_spin = QSpinBox()
+        self._font_spin.setRange(9, 28)
+        self._font_spin.setSuffix(" px")
+        self._font_spin.setValue(int(prefs.get("font_size", 13)))
+        self._font_spin.valueChanged.connect(self._on_font_size_changed)
+        font_row.addWidget(self._font_spin)
+        layout.addLayout(font_row)
+
+        layout.addWidget(self._build_color_row(
+            "Text color — dark theme", "text_color_dark", theme_module.DARK["text_primary"],
+        ))
+        layout.addWidget(self._build_color_row(
+            "Text color — light theme", "text_color_light", theme_module.LIGHT["text_primary"],
+        ))
+
+        hint = QLabel(
+            "Text color is picked per theme so it always stays readable\n"
+            "against that theme's background."
+        )
+        hint.setProperty("role", "secondary")
+        layout.addWidget(hint)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        done = QPushButton("Done")
+        done.setProperty("variant", "primary")
+        done.clicked.connect(self.accept)
+        btn_row.addWidget(done)
+        layout.addLayout(btn_row)
+
+    def _build_color_row(self, label: str, pref_key: str, default_hex: str) -> QWidget:
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(8)
+        h.addWidget(QLabel(label))
+        h.addStretch(1)
+
+        swatch = QLabel()
+        swatch.setFixedSize(24, 24)
+
+        def current_hex() -> str:
+            return self._prefs.get(pref_key) or default_hex
+
+        def refresh_swatch() -> None:
+            swatch.setStyleSheet(f"background: {current_hex()}; border: 1px solid #6f6f6f;")
+
+        refresh_swatch()
+        h.addWidget(swatch)
+
+        pick = QPushButton("Pick…")
+        pick.setProperty("variant", "secondary")
+
+        def do_pick() -> None:
+            dlg = QColorDialog(QColor(current_hex()), self)
+            if dlg.exec() == QDialog.Accepted:
+                self._prefs[pref_key] = dlg.currentColor().name()
+                refresh_swatch()
+                self._notify()
+
+        pick.clicked.connect(do_pick)
+        h.addWidget(pick)
+
+        reset = QPushButton("Reset")
+        reset.setProperty("variant", "ghost")
+
+        def do_reset() -> None:
+            self._prefs[pref_key] = ""
+            refresh_swatch()
+            self._notify()
+
+        reset.clicked.connect(do_reset)
+        h.addWidget(reset)
+
+        return row
+
+    def _on_font_size_changed(self, value: int) -> None:
+        self._prefs["font_size"] = int(value)
+        self._notify()
+
+    def _notify(self) -> None:
+        if self._on_change:
+            self._on_change()

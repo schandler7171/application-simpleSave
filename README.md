@@ -33,15 +33,32 @@ Prefs (theme, last-used folder/tags, window geometry) live next to the DB in `pr
 
 ## Features in v1
 
-- Snippets with title, body, folder, multi-tag, language hint.
+- Snippets with title, body, folder, multi-tag, language.
+- Syntax color-coding in the editor, driven by a per-snippet Language dropdown
+  (Pygments under the hood — see "Syntax highlighting" below).
 - Tag pills with custom colors (click pill → filter; click again → unfilter).
 - Folder tree (nestable in schema; flat creation in v1 UI).
 - Dark and light themes — toggle in toolbar or `Ctrl+T`.
+- Preferences (toolbar → "Preferences"): font size, and a text color picker
+  per theme — applied live, no restart needed.
 - Autosave (~500 ms debounce).
 - Search across title and body.
 - Import: `.md` (with YAML-ish front matter), `.txt`, `.csv`.
-- Export: same three formats.
+- Export: same three formats — CSV and single-snippet exports let you name
+  the file; every export reveals itself in Finder when it's done.
+- "Template" button: saves a blank CSV in the exact shape bulk import
+  expects, so you know what columns to fill in before importing many
+  snippets at once.
 - Copy snippet body to clipboard.
+
+## Syntax highlighting
+
+Set a snippet's **Language** in the editor's meta row and its body colors
+itself accordingly (Python, JavaScript, Bash, SQL, and about a dozen others —
+see the dropdown for the full list). Pick "Plain text" to turn it off for
+that snippet. The color style follows the app theme (a dark-friendly palette
+in dark mode, a light-friendly one in light mode) and updates immediately
+when you toggle themes.
 
 ## Keyboard shortcuts
 
@@ -119,7 +136,6 @@ Expect ~80–130 MB for the `.app` (mostly the bundled Qt runtime). DMG is ~50�
 
 ## Not in v1
 
-- Syntax highlighting (Pygments) — deferred.
 - FTS5 search — currently uses simple `LIKE`; plenty fast for thousands of snippets.
 - Eyedropper screen color picker — `QColorDialog` gives you a perfectly good wheel + sampler on macOS already.
 - Windows `.exe` packaging — same approach, different script. Add when you want it.

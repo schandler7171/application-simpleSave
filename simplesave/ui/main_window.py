@@ -1,11 +1,13 @@
 """Main window: tag bar, toolbar, sidebar (folders + tags), snippet list, editor."""
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -33,7 +35,8 @@ import pyperclip
 from simplesave import config, io_formats, theme
 from simplesave.db import Database
 from simplesave.models import Snippet, Tag
-from simplesave.ui.dialogs import NewTagDialog
+from simplesave.ui.dialogs import NewTagDialog, PreferencesDialog
+from simplesave.ui.highlighter import LANGUAGE_CHOICES, SnippetHighlighter
 from simplesave.ui.tag_pill import TagPill
 
 
@@ -134,6 +137,15 @@ class MainWindow(QMainWindow):
         self._theme_btn = theme_btn
         tb.addWidget(theme_btn)
 
+        template_btn = QPushButton("Template")
+        template_btn.setProperty("variant", "secondary")
+        template_btn.setToolTip(
+            "Save a blank CSV in the exact format simpleSave expects,\n"
+            "so you can fill it in and bulk-import it back."
+        )
+        template_btn.clicked.connect(self._export_import_template)
+        tb.addWidget(template_btn)
+
         import_btn = QPushButton("Import")
         import_btn.setProperty("variant", "secondary")
         import_btn.clicked.connect(self._import_files)
@@ -143,6 +155,11 @@ class MainWindow(QMainWindow):
         export_btn.setProperty("variant", "secondary")
         export_btn.clicked.connect(self._export_dialog)
         tb.addWidget(export_btn)
+
+        prefs_btn = QPushButton("Preferences")
+        prefs_btn.setProperty("variant", "ghost")
+        prefs_btn.clicked.connect(self._open_preferences)
+        tb.addWidget(prefs_btn)
 
         h.addWidget(toolbar)
         return bar
@@ -212,7 +229,7 @@ class MainWindow(QMainWindow):
         self._title_edit.textChanged.connect(self._schedule_autosave)
         v.addWidget(self._title_edit)
 
-        # folder + tags row
+        # folder + language + tags row
         meta = QHBoxLayout()
         meta.setSpacing(8)
 
@@ -220,6 +237,15 @@ class MainWindow(QMainWindow):
         self._folder_combo = QComboBox()
         self._folder_combo.currentIndexChanged.connect(self._on_editor_folder_changed)
         meta.addWidget(self._folder_combo)
+
+        meta.addSpacing(12)
+        meta.addWidget(QLabel("Language:"))
+        self._language_combo = QComboBox()
+        for label, value in LANGUAGE_CHOICES:
+            self._language_combo.addItem(label, value)
+        self._language_combo.setToolTip("Controls syntax color-coding for this snippet's body.")
+        self._language_combo.currentIndexChanged.connect(self._on_editor_language_changed)
+        meta.addWidget(self._language_combo)
 
         meta.addSpacing(12)
         meta.addWidget(QLabel("Tags:"))
@@ -245,6 +271,8 @@ class MainWindow(QMainWindow):
         self._editor.setPlaceholderText("Write your snippet here…")
         self._editor.textChanged.connect(self._schedule_autosave)
         v.addWidget(self._editor, 1)
+
+        self._highlighter = SnippetHighlighter(self._editor.document(), theme_name=self.prefs["theme"])
 
         # bottom actions
         bottom = QHBoxLayout()
@@ -442,6 +470,8 @@ class MainWindow(QMainWindow):
             self._title_edit.clear()
             self._editor.clear()
             self._folder_combo.setCurrentIndex(0)
+            self._language_combo.setCurrentIndex(0)
+            self._highlighter.set_language(None)
             self._rebuild_editor_tag_pills([])
             self._status_label.clear()
             self._suspend_autosave = False
@@ -452,6 +482,12 @@ class MainWindow(QMainWindow):
         # folder
         idx = self._folder_combo.findData(snippet.folder_id)
         self._folder_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        # language — fall back to "Plain text" in the dropdown for a value
+        # outside our curated list, but still highlight using the snippet's
+        # real language so nothing imported gets silently un-highlighted.
+        lidx = self._language_combo.findData(snippet.language)
+        self._language_combo.setCurrentIndex(lidx if lidx >= 0 else 0)
+        self._highlighter.set_language(snippet.language)
         self._rebuild_editor_tag_pills(snippet.tags)
         self._status_label.setText(f"updated {snippet.updated_at}")
         self._suspend_autosave = False
@@ -480,11 +516,13 @@ class MainWindow(QMainWindow):
         title = self._title_edit.text().strip() or "(untitled)"
         body = self._editor.toPlainText()
         folder_id = self._folder_combo.currentData()
+        language = self._language_combo.currentData()
         self.db.update_snippet(
             self._current_snippet.id,
             title=title,
             body=body,
             folder_id=folder_id,
+            language=language,
         )
         # refresh just the list row label without rebuilding everything
         refreshed = self.db.get_snippet(self._current_snippet.id)
@@ -496,6 +534,12 @@ class MainWindow(QMainWindow):
             self._status_label.setText(f"updated {refreshed.updated_at}")
 
     def _on_editor_folder_changed(self, _idx: int) -> None:
+        if self._suspend_autosave or self._current_snippet is None:
+            return
+        self._schedule_autosave()
+
+    def _on_editor_language_changed(self, _idx: int) -> None:
+        self._highlighter.set_language(self._language_combo.currentData())
         if self._suspend_autosave or self._current_snippet is None:
             return
         self._schedule_autosave()
@@ -607,16 +651,53 @@ class MainWindow(QMainWindow):
         self._current_snippet = None
         self._reload_snippets()
 
+    def _current_stylesheet(self) -> str:
+        active_theme = self.prefs["theme"]
+        return theme.build_stylesheet(
+            active_theme,
+            font_size=int(self.prefs.get("font_size", theme.DEFAULT_FONT_SIZE)),
+            text_color=self.prefs.get(f"text_color_{active_theme}") or None,
+        )
+
+    def _apply_theme(self) -> None:
+        QApplication.instance().setStyleSheet(self._current_stylesheet())
+
     def _toggle_theme(self) -> None:
         new_theme = "light" if self.prefs["theme"] == "dark" else "dark"
         self.prefs["theme"] = new_theme
         config.save_prefs(self.prefs)
-        QApplication.instance().setStyleSheet(theme.build_stylesheet(new_theme))
+        self._apply_theme()
         self._theme_btn.setText("☾" if new_theme == "dark" else "☼")
+        self._highlighter.set_theme(new_theme)
         # tag pills bake colors in their stylesheet — rebuild them
         self._reload_tag_bar()
         if self._current_snippet is not None:
             self._rebuild_editor_tag_pills(self._current_snippet.tags)
+
+    def _open_preferences(self) -> None:
+        dlg = PreferencesDialog(self, prefs=self.prefs, on_change=self._on_prefs_changed)
+        dlg.exec()
+        config.save_prefs(self.prefs)
+
+    def _on_prefs_changed(self) -> None:
+        config.save_prefs(self.prefs)
+        self._apply_theme()
+
+    # ---------- reveal in file manager ----------
+
+    def _reveal_path(self, path: Path) -> None:
+        """Open the exported file's location. On macOS this reveals and
+        highlights the file itself in Finder; elsewhere it opens the
+        containing folder (Qt has no cross-platform "select this file" API).
+        """
+        if sys.platform == "darwin":
+            try:
+                subprocess.run(["open", "-R", str(path)], check=False)
+                return
+            except Exception:
+                pass
+        target = path if path.is_dir() else path.parent
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
     # ---------- import / export ----------
 
@@ -662,6 +743,28 @@ class MainWindow(QMainWindow):
             msg += "\n\nErrors:\n" + "\n".join(errors[:10])
         QMessageBox.information(self, "Import complete", msg)
 
+    def _export_import_template(self) -> None:
+        """Save a blank CSV in the exact shape bulk import expects, so it's
+        obvious what columns to fill in before importing many snippets at
+        once."""
+        default_path = Path(self.prefs["default_export_dir"]) / "simplesave-import-template.csv"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save import template",
+            str(default_path),
+            "CSV (*.csv)",
+        )
+        if not path:
+            return
+        out_path = Path(path)
+        if out_path.suffix.lower() != ".csv":
+            out_path = out_path.with_suffix(".csv")
+        io_formats.export_csv_template(out_path)
+        self.prefs["default_export_dir"] = str(out_path.parent)
+        config.save_prefs(self.prefs)
+        self._status_label.setText(f"template saved → {out_path.name}")
+        self._reveal_path(out_path)
+
     def _export_dialog(self) -> None:
         if self._snippet_list.count() == 0:
             QMessageBox.information(self, "Nothing to export", "No snippets in the current view.")
@@ -672,6 +775,36 @@ class MainWindow(QMainWindow):
         )
         if not ok:
             return
+
+        # collect snippets currently visible in the list
+        ids = [self._snippet_list.item(i).data(Qt.UserRole) for i in range(self._snippet_list.count())]
+        snippets = [self.db.get_snippet(int(i)) for i in ids]
+        snippets = [s for s in snippets if s is not None]
+
+        if fmt.startswith("CSV"):
+            # A single named file — this is the one export format where
+            # "name the export" means something (Markdown/plain text export
+            # one file per snippet, named from the snippet's own title).
+            default_name = self.prefs.get("last_csv_export_name") or "simplesave-export.csv"
+            default_path = Path(self.prefs["default_export_dir"]) / default_name
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export as CSV", str(default_path), "CSV (*.csv)",
+            )
+            if not path:
+                return
+            out_path = Path(path)
+            if out_path.suffix.lower() != ".csv":
+                out_path = out_path.with_suffix(".csv")
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            self.prefs["default_export_dir"] = str(out_path.parent)
+            self.prefs["last_csv_export_name"] = out_path.name
+            config.save_prefs(self.prefs)
+
+            n = io_formats.export_csv(self.db, snippets, out_path)
+            QMessageBox.information(self, "Export complete", f"Exported {n} snippet(s) to:\n{out_path}")
+            self._reveal_path(out_path)
+            return
+
         dest = QFileDialog.getExistingDirectory(
             self, "Export to folder", self.prefs["default_export_dir"]
         )
@@ -682,22 +815,16 @@ class MainWindow(QMainWindow):
         self.prefs["default_export_dir"] = str(dest_path)
         config.save_prefs(self.prefs)
 
-        # collect snippets currently visible in the list
-        ids = [self._snippet_list.item(i).data(Qt.UserRole) for i in range(self._snippet_list.count())]
-        snippets = [self.db.get_snippet(int(i)) for i in ids]
-        snippets = [s for s in snippets if s is not None]
-
         if fmt.startswith("Markdown"):
             n = io_formats.export_markdown(self.db, snippets, dest_path)
-        elif fmt.startswith("Plain text"):
-            n = io_formats.export_plaintext(self.db, snippets, dest_path)
         else:
-            n = io_formats.export_csv(self.db, snippets, dest_path / "simplesave-export.csv")
+            n = io_formats.export_plaintext(self.db, snippets, dest_path)
 
         QMessageBox.information(
             self, "Export complete",
             f"Exported {n} snippet(s) to:\n{dest_path}",
         )
+        self._reveal_path(dest_path)
 
     def _export_current(self) -> None:
         if self._current_snippet is None:
@@ -719,6 +846,7 @@ class MainWindow(QMainWindow):
                 encoding="utf-8",
             )
         self._status_label.setText(f"exported → {p.name}")
+        self._reveal_path(p)
 
     # ---------- close ----------
 

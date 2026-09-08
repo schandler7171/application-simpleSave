@@ -171,6 +171,29 @@ def export_csv(db: Database, snippets: Iterable[Snippet], out_path: Path) -> int
     return count
 
 
+def export_csv_template(out_path: Path) -> None:
+    """Write a blank "bulksheet" — the exact CSV shape `import_csv` expects,
+    with one filled-in example row so the format (folder paths, `|`-joined
+    tags, language) is obvious at a glance. `id`, `created_at`, and
+    `updated_at` are included for symmetry with a real export but are
+    ignored on import — leave them blank.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS, quoting=csv.QUOTE_MINIMAL)
+        w.writeheader()
+        w.writerow({
+            "id": "",
+            "title": "Example snippet",
+            "body": "echo \"hello from simpleSave\"",
+            "folder": "Examples/Bulk Import",
+            "tags": "example|bash",
+            "language": "bash",
+            "created_at": "",
+            "updated_at": "",
+        })
+
+
 def import_csv(db: Database, path: Path) -> ImportResult:
     result = ImportResult()
     try:

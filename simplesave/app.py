@@ -16,7 +16,12 @@ def main() -> None:
     app.setApplicationName(config.APP_NAME)
 
     prefs = config.load_prefs()
-    app.setStyleSheet(theme.build_stylesheet(prefs["theme"]))
+    active_theme = prefs["theme"]
+    app.setStyleSheet(theme.build_stylesheet(
+        active_theme,
+        font_size=int(prefs.get("font_size", theme.DEFAULT_FONT_SIZE)),
+        text_color=prefs.get(f"text_color_{active_theme}") or None,
+    ))
 
     db = Database(config.DB_PATH)
     window = MainWindow(db, prefs)

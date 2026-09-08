@@ -9,7 +9,9 @@ DARK = {
     "layer_03":          "#525252",
     "border_subtle":     "#393939",
     "border_strong":     "#6f6f6f",
-    "text_primary":      "#f4f4f4",
+    # Softer than pure white so long reading sessions in dark mode are easier
+    # on the eyes (matches common editor foreground colors like VS Code's).
+    "text_primary":      "#d4d4d4",
     "text_secondary":    "#c6c6c6",
     "text_placeholder":  "#6f6f6f",
     "text_on_color":     "#ffffff",
@@ -41,11 +43,13 @@ LIGHT = {
 
 SPACING = {"02": 4, "03": 8, "04": 12, "05": 16, "06": 24, "07": 32}
 
+DEFAULT_FONT_SIZE = 13
+
 
 _QSS_TEMPLATE = """
 * {{
     font-family: "Work Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-size: 13px;
+    font-size: {font_size}px;
     color: {text_primary};
 }}
 
@@ -93,7 +97,7 @@ QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QComboBox:focus {{
 
 QPlainTextEdit#Editor, QPlainTextEdit#editor {{
     font-family: "Space Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
-    font-size: 13px;
+    font-size: {font_size}px;
     border: none;
     background-color: {background};
     padding: 16px;
@@ -101,7 +105,7 @@ QPlainTextEdit#Editor, QPlainTextEdit#editor {{
 
 QLineEdit#TitleInput {{
     font-family: "Space Mono", "Menlo", "Consolas", monospace;
-    font-size: 16px;
+    font-size: {title_font_size}px;
     font-weight: 600;
     background: transparent;
     border: none;
@@ -233,9 +237,21 @@ QStatusBar {{
 """
 
 
-def stylesheet(theme: str) -> str:
-    tokens = DARK if theme == "dark" else LIGHT
-    return _QSS_TEMPLATE.format(**tokens)
+def stylesheet(theme: str, *, font_size: int = DEFAULT_FONT_SIZE, text_color: str | None = None) -> str:
+    """Build the QSS for `theme` ('dark' | 'light').
+
+    `font_size` scales the base UI + editor font. `text_color`, when given,
+    overrides that theme's default primary text color (used by the
+    Preferences dialog's "text color" pickers) — the rest of the palette
+    (backgrounds, borders, accents) stays put so contrast is preserved.
+    """
+    base = DARK if theme == "dark" else LIGHT
+    tok = dict(base)
+    if text_color:
+        tok["text_primary"] = text_color
+    tok["font_size"] = int(font_size)
+    tok["title_font_size"] = int(font_size) + 3
+    return _QSS_TEMPLATE.format(**tok)
 
 
 def tokens(theme: str) -> dict:

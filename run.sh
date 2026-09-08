@@ -7,11 +7,11 @@ cd "$(dirname "$0")"
 if [ ! -d ".venv" ]; then
   echo "Creating virtualenv..."
   python3 -m venv .venv
-  source .venv/bin/activate
-  pip install --upgrade pip
-  pip install -r requirements.txt
-else
-  source .venv/bin/activate
 fi
+
+source .venv/bin/activate
+# Cheap no-op when nothing changed, but picks up new/updated dependencies
+# (e.g. Pygments for syntax highlighting) without needing to delete .venv.
+pip install --quiet --upgrade -r requirements.txt
 
 python -m simplesave

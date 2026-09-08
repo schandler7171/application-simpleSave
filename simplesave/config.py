@@ -36,6 +36,13 @@ DEFAULT_PREFS = {
     "window_geometry": "",
     "active_tag_ids": [],
     "active_folder_id": None,
+    # Per-theme text color overrides set from Preferences. Empty string
+    # means "use that theme's default" (see simplesave.theme).
+    "text_color_dark": "",
+    "text_color_light": "",
+    # Remembers the last filename used for a CSV bulk export so the save
+    # dialog can default to it next time.
+    "last_csv_export_name": "simplesave-export.csv",
 }
 
 
