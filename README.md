@@ -121,14 +121,35 @@ If `create-dmg` isn't installed, the script falls back to `hdiutil` and you stil
 
 ### Why the warning?
 
-The DMG is **ad-hoc signed**, not Developer ID signed. macOS shows the warning once because Apple wants $99/year for a Developer Program account before it'll trust an app silently. Removing the warning later just means:
+By default the DMG is **ad-hoc signed**, not Developer ID signed. macOS shows the warning once because Apple wants a Developer Program account before it'll trust an app silently.
 
-1. Enroll in Apple Developer Program ($99/yr)
-2. Add `codesign_identity` to `simplesave.spec` with your Developer ID
-3. Run `xcrun notarytool submit` after building
-4. Run `xcrun stapler staple dist/simpleSave.dmg`
+### Developer ID signing + notarization (removes the warning)
 
-Nothing about the app itself needs to change.
+`build_mac.sh` supports a fully signed, notarized build — no code changes, just environment variables:
+
+1. Enroll in the [Apple Developer Program](https://developer.apple.com/programs/) ($99/yr) if you haven't.
+2. Create a **Developer ID Application** certificate: Keychain Access → Certificate Assistant → Request a Certificate From a Certificate Authority (save the CSR to disk) → upload it at [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list) → download the issued certificate and double-click it to install it in your login keychain.
+3. Find the exact identity string:
+   ```bash
+   security find-identity -v -p codesigning
+   ```
+   Look for a line like `"Developer ID Application: Your Name (ABCDE12345)"`.
+4. (Optional, for notarization) Generate an app-specific password at [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → App-Specific Passwords, then save it once so you don't retype it every release:
+   ```bash
+   xcrun notarytool store-credentials "simplesave-notary" \
+     --apple-id you@example.com \
+     --team-id ABCDE12345 \
+     --password the-app-specific-password
+   ```
+5. Build signed and notarized:
+   ```bash
+   SIMPLESAVE_SIGN_IDENTITY="Developer ID Application: Your Name (ABCDE12345)" \
+   SIMPLESAVE_KEYCHAIN_PROFILE="simplesave-notary" \
+   ./scripts/build_mac.sh
+   ```
+   Leave `SIMPLESAVE_KEYCHAIN_PROFILE` unset to sign without submitting for notarization (still shows a milder Gatekeeper prompt, but the identity is verifiable). Leave both unset for the original ad-hoc build.
+
+The script signs every nested library with the hardened runtime (required for notarization), signs the `.app`, builds the `.dmg`, submits it to Apple, waits for approval, and staples the ticket to both — so a finished run needs no further steps. `entitlements.plist` at the project root carries the two hardened-runtime exceptions PyInstaller apps typically need (dynamic library loading for the bundled Python/Qt runtime); nothing else is granted.
 
 ### Build size
 

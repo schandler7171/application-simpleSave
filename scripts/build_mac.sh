@@ -111,13 +111,74 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 echo "==> Built $APP_PATH"
 
-# ---- ad-hoc codesign so Gatekeeper at least recognizes the bundle --------
-# (Not a Developer ID signature. Users still see the unidentified-developer
-# warning on first launch and need to right-click → Open. Real signing
-# requires an Apple Developer Program account.)
-echo "==> Ad-hoc signing $APP_PATH"
-codesign --force --deep --sign - "$APP_PATH" || \
-  echo "WARN: codesign failed; app will still run."
+# ---- codesign: ad-hoc (default) or Developer ID (opt-in) ------------------
+#
+# By default this produces the same ad-hoc-signed build as always — no Apple
+# account needed, users right-click → Open the first time.
+#
+# To produce a properly signed build instead, export these before running
+# this script:
+#
+#   SIMPLESAVE_SIGN_IDENTITY   "Developer ID Application: Your Name (TEAMID)"
+#                              (get the exact string from:
+#                               security find-identity -v -p codesigning)
+#
+# and, to also submit for notarization once signed:
+#
+#   SIMPLESAVE_KEYCHAIN_PROFILE   a profile name you saved once via:
+#     xcrun notarytool store-credentials "simplesave-notary" \
+#       --apple-id you@example.com --team-id TEAMID \
+#       --password an-app-specific-password
+#
+# Example:
+#   SIMPLESAVE_SIGN_IDENTITY="Developer ID Application: Scott Chandler (ABCDE12345)" \
+#   SIMPLESAVE_KEYCHAIN_PROFILE="simplesave-notary" \
+#   ./scripts/build_mac.sh
+
+SIGNED=0
+
+if [[ -n "${SIMPLESAVE_SIGN_IDENTITY:-}" ]]; then
+  echo "==> Developer ID signing requested: $SIMPLESAVE_SIGN_IDENTITY"
+
+  ENTITLEMENTS="$ROOT/entitlements.plist"
+  if [[ ! -f "$ENTITLEMENTS" ]]; then
+    echo "ERROR: $ENTITLEMENTS not found." >&2
+    exit 1
+  fi
+
+  sign_one() {
+    codesign --force --options runtime --timestamp \
+      --entitlements "$ENTITLEMENTS" \
+      --sign "$SIMPLESAVE_SIGN_IDENTITY" "$1"
+  }
+
+  # Notarization needs every embedded Mach-O binary individually signed with
+  # hardened runtime, innermost first — `codesign --deep` alone is not
+  # reliable enough for PyInstaller's nested .so/.dylib/Frameworks layout.
+  echo "==> Signing nested libraries (hardened runtime)"
+  find "$APP_PATH" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 |
+    while IFS= read -r -d '' f; do sign_one "$f"; done
+
+  if [[ -d "$APP_PATH/Contents/Frameworks" ]]; then
+    find "$APP_PATH/Contents/Frameworks" -type f -perm -u+x -print0 |
+      while IFS= read -r -d '' f; do sign_one "$f" || true; done
+  fi
+
+  echo "==> Signing $APP_PATH"
+  sign_one "$APP_PATH"
+
+  echo "==> Verifying signature"
+  codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+  spctl -a -vvv --type execute "$APP_PATH" || \
+    echo "WARN: spctl doesn't recognize it yet — expected until after notarization."
+
+  SIGNED=1
+else
+  echo "==> No SIMPLESAVE_SIGN_IDENTITY set — building ad-hoc (unsigned) as before."
+  echo "==> Ad-hoc signing $APP_PATH"
+  codesign --force --deep --sign - "$APP_PATH" || \
+    echo "WARN: codesign failed; app will still run."
+fi
 
 # ---- DMG ------------------------------------------------------------------
 DMG_PATH="$DIST/$APP_NAME.dmg"
@@ -177,12 +238,45 @@ if [[ ! -f "$DMG_PATH" ]]; then
   exit 1
 fi
 
+# ---- notarization (only meaningful if Developer ID-signed) ---------------
+if [[ "$SIGNED" -eq 1 ]]; then
+  if [[ -n "${SIMPLESAVE_KEYCHAIN_PROFILE:-}" ]]; then
+    echo "==> Submitting $DMG_PATH for notarization (can take a few minutes)"
+    xcrun notarytool submit "$DMG_PATH" \
+      --keychain-profile "$SIMPLESAVE_KEYCHAIN_PROFILE" \
+      --wait
+
+    echo "==> Stapling notarization ticket"
+    xcrun stapler staple "$APP_PATH"
+    xcrun stapler staple "$DMG_PATH"
+
+    echo "==> Final Gatekeeper check"
+    spctl -a -vvv --type execute "$APP_PATH"
+  else
+    echo "==> Signed but SIMPLESAVE_KEYCHAIN_PROFILE not set — skipping notarization."
+    echo "    Run this once you've saved credentials with notarytool store-credentials:"
+    echo "      xcrun notarytool submit \"$DMG_PATH\" --keychain-profile YOUR_PROFILE --wait"
+    echo "      xcrun stapler staple \"$APP_PATH\" && xcrun stapler staple \"$DMG_PATH\""
+  fi
+fi
+
 echo
 echo "==> Done."
 echo "    App:  $APP_PATH"
 echo "    DMG:  $DMG_PATH"
 echo
-echo "Install:"
-echo "  1. Open dist/$APP_NAME.dmg"
-echo "  2. Drag $APP_NAME.app to Applications"
-echo "  3. First launch: right-click the app -> Open -> Open (Gatekeeper warning)"
+if [[ "$SIGNED" -eq 1 ]]; then
+  echo "Signed with: $SIMPLESAVE_SIGN_IDENTITY"
+  echo "Install:"
+  echo "  1. Open dist/$APP_NAME.dmg"
+  echo "  2. Drag $APP_NAME.app to Applications"
+  echo "  3. Double-click to launch — no Gatekeeper warning once notarized+stapled."
+else
+  echo "Install:"
+  echo "  1. Open dist/$APP_NAME.dmg"
+  echo "  2. Drag $APP_NAME.app to Applications"
+  echo "  3. First launch: right-click the app -> Open -> Open (Gatekeeper warning)"
+  echo
+  echo "  To ship a signed, warning-free build instead, see the 'Developer ID"
+  echo "  signing' section in README.md."
+fi
