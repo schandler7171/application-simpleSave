@@ -9,6 +9,19 @@ from pathlib import Path
 APP_NAME = "simpleSave"
 
 
+def resource_path(*parts: str) -> Path:
+    """Path to a bundled, read-only resource (e.g. the sample snippet CSVs),
+    resolved correctly both when running from source and when frozen into
+    a PyInstaller .app (where such files live under sys._MEIPASS instead of
+    next to this file).
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent  # project root
+    return base.joinpath(*parts)
+
+
 def app_data_dir() -> Path:
     """Per-OS app data directory. Created if missing."""
     if sys.platform == "darwin":
@@ -43,6 +56,10 @@ DEFAULT_PREFS = {
     # Remembers the last filename used for a CSV bulk export so the save
     # dialog can default to it next time.
     "last_csv_export_name": "simplesave-export.csv",
+    # Flips to True after the bundled sample snippets (Bash, HTML, JS, CSS,
+    # Python) are auto-imported once on first launch. Left False forever
+    # skips re-seeding, even if the user deletes them afterward.
+    "seeded_sample_snippets": False,
 }
 
 

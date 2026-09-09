@@ -25,7 +25,7 @@ a = Analysis(
     ["simplesave/__main__.py"],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[],
+    datas=[(str(ROOT / "sample-snippets"), "sample-snippets")],
     hiddenimports=[
         # PySide6 picks these up automatically in 6.6+, but list them
         # defensively in case PyInstaller's hook misses something.

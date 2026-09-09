@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 from simplesave import config, theme
 from simplesave.db import Database
+from simplesave.seed_data import seed_sample_snippets_if_needed
 from simplesave.ui.main_window import MainWindow
 
 
@@ -24,6 +25,7 @@ def main() -> None:
     ))
 
     db = Database(config.DB_PATH)
+    seed_sample_snippets_if_needed(db, prefs)
     window = MainWindow(db, prefs)
 
     geom_hex = prefs.get("window_geometry") or ""
