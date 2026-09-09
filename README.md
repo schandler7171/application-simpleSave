@@ -1,5 +1,7 @@
 # simpleSave
 
+*Developed with Claude assistance.*
+
 A 100% local snippet manager. No accounts, no cloud, no telemetry.
 
 Python + PySide6 + SQLite. Carbon-inspired dark/light theme. Tags with custom colors, folders, search, and round-trip import/export for Markdown, plain text, and CSV.
