@@ -1,0 +1,37 @@
+id,title,body,folder,tags,language,created_at,updated_at
+,Print text to the console,"print(""Hello, world!"")",Sample Snippets/Python,sample|python,python,,
+,Define a reusable function,"def greet(name):
+    return f""Hello, {name}""",Sample Snippets/Python,sample|python,python,,
+,Loop over every item in a list,"for item in items:
+    print(item)",Sample Snippets/Python,sample|python,python,,
+,Loop a fixed number of times,"for i in range(10):
+    print(i)",Sample Snippets/Python,sample|python,python,,
+,Build a new list by transforming each item,doubled = [n * 2 for n in numbers],Sample Snippets/Python,sample|python,python,,
+,Filter a list down to items matching a condition,evens = [n for n in numbers if n % 2 == 0],Sample Snippets/Python,sample|python,python,,
+,Read the entire contents of a text file,"with open(""file.txt"") as f:
+    contents = f.read()",Sample Snippets/Python,sample|python,python,,
+,"Write text to a file, overwriting whatever was there","with open(""file.txt"", ""w"") as f:
+    f.write(""text"")",Sample Snippets/Python,sample|python,python,,
+,Parse a JSON file into a Python object,"import json
+with open(""file.json"") as f:
+    data = json.load(f)",Sample Snippets/Python,sample|python,python,,
+,Install a third-party package,pip install package_name,Sample Snippets/Python,sample|python,python,,
+,Create an isolated virtual environment for a project,python3 -m venv .venv,Sample Snippets/Python,sample|python,python,,
+,Handle an exception without crashing the program,"try:
+    risky()
+except Exception as e:
+    print(e)",Sample Snippets/Python,sample|python,python,,
+,Define a class with an initializer,"class Person:
+    def __init__(self, name):
+        self.name = name",Sample Snippets/Python,sample|python,python,,
+,Sort a list in place,numbers.sort(),Sample Snippets/Python,sample|python,python,,
+,Get all the keys of a dictionary,my_dict.keys(),Sample Snippets/Python,sample|python,python,,
+,Check whether a value exists in a list,"if ""x"" in items:
+    print(""found it"")",Sample Snippets/Python,sample|python,python,,
+,Format a number into a string with two decimal places,"f""Total: {total:.2f}""",Sample Snippets/Python,sample|python,python,,
+,Make an HTTP GET request and parse the JSON response,"import requests
+data = requests.get(url).json()",Sample Snippets/Python,sample|python,python,,
+,Read the command-line arguments passed to a script,"import sys
+args = sys.argv",Sample Snippets/Python,sample|python,python,,
+,Run a block of code only when the script is executed directly,"if __name__ == ""__main__"":
+    main()",Sample Snippets/Python,sample|python,python,,

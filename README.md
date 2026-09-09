@@ -53,6 +53,10 @@ Prefs (theme, last-used folder/tags, window geometry) live next to the DB in `pr
   snippets at once.
 - Copy snippet body to clipboard.
 
+## Sample snippets
+
+The [`sample-snippets/`](sample-snippets) folder has ready-made CSVs for Bash terminal commands, HTML, JavaScript, CSS, and Python — each row a one-sentence description paired with the actual snippet. Import any of them (toolbar → "Import") to get a working reference library on day one.
+
 ## Syntax highlighting
 
 Set a snippet's **Language** in the editor's meta row and its body colors

@@ -1,0 +1,39 @@
+id,title,body,folder,tags,language,created_at,updated_at
+,Declare a variable that can be reassigned,let count = 0;,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Declare a constant that cannot be reassigned,"const name = ""Scott"";",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Define a reusable function,"function greet(name) {
+  return `Hello, ${name}`;
+}",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Define a short arrow function,"const add = (a, b) => a + b;",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Loop over every item in an array,array.forEach(item => console.log(item));,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Transform every item in an array into a new array,const doubled = numbers.map(n => n * 2);,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Filter an array down to items matching a condition,const evens = numbers.filter(n => n % 2 === 0);,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Select an element from the page by its id,"document.getElementById(""myId"");",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Run code when an element is clicked,"element.addEventListener(""click"", () => {
+  console.log(""clicked"");
+});",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Fetch data from an API and parse it as JSON,"fetch(url)
+  .then(res => res.json())
+  .then(data => console.log(data));",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Parse a JSON string into a JavaScript object,const obj = JSON.parse(jsonString);,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Convert a JavaScript object into a JSON string,const json = JSON.stringify(obj);,Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Branch based on a condition,"if (x > 10) {
+  doA();
+} else {
+  doB();
+}",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Loop a fixed number of times,"for (let i = 0; i < 10; i++) {
+  console.log(i);
+}",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Pause execution asynchronously for a set time,"await new Promise(r => setTimeout(r, 1000));",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Combine multiple arrays using the spread operator,"const merged = [...arrayA, ...arrayB];",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Destructure fields out of an object,"const { name, age } = person;",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Try an operation and handle any error it throws,"try {
+  risky();
+} catch (err) {
+  console.error(err);
+}",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Export a function so other files can import it,"export function helper() {
+  // ...
+}",Sample Snippets/JavaScript,sample|javascript,javascript,,
+,Import a function from another module,"import { helper } from ""./utils.js"";",Sample Snippets/JavaScript,sample|javascript,javascript,,

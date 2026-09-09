@@ -1,0 +1,50 @@
+id,title,body,folder,tags,language,created_at,updated_at
+,Define the basic structure of an HTML5 document,"<!DOCTYPE html>
+<html>
+<head>
+  <title>My Page</title>
+</head>
+<body>
+
+</body>
+</html>",Sample Snippets/HTML,sample|html,html,,
+,Link an external CSS stylesheet,"<link rel=""stylesheet"" href=""styles.css"">",Sample Snippets/HTML,sample|html,html,,
+,Link an external JavaScript file,"<script src=""script.js""></script>",Sample Snippets/HTML,sample|html,html,,
+,Create a hyperlink to another page,"<a href=""https://example.com"">Visit Example</a>",Sample Snippets/HTML,sample|html,html,,
+,Embed an image with alt text,"<img src=""photo.jpg"" alt=""A description of the photo"">",Sample Snippets/HTML,sample|html,html,,
+,Create an unordered bullet list,"<ul>
+  <li>First item</li>
+  <li>Second item</li>
+</ul>",Sample Snippets/HTML,sample|html,html,,
+,Create a numbered list,"<ol>
+  <li>First step</li>
+  <li>Second step</li>
+</ol>",Sample Snippets/HTML,sample|html,html,,
+,Build a basic table with a header row,"<table>
+  <tr><th>Name</th><th>Age</th></tr>
+  <tr><td>Ada</td><td>30</td></tr>
+</table>",Sample Snippets/HTML,sample|html,html,,
+,Create a form that submits data via POST,"<form action=""/submit"" method=""post"">
+  <input type=""text"" name=""query"">
+  <button type=""submit"">Go</button>
+</form>",Sample Snippets/HTML,sample|html,html,,
+,Add a labeled text input field,"<label for=""name"">Name</label>
+<input type=""text"" id=""name"" name=""name"">",Sample Snippets/HTML,sample|html,html,,
+,Add a dropdown select menu,"<select name=""choice"">
+  <option value=""a"">Option A</option>
+  <option value=""b"">Option B</option>
+</select>",Sample Snippets/HTML,sample|html,html,,
+,Embed a video player with controls,"<video controls src=""movie.mp4""></video>",Sample Snippets/HTML,sample|html,html,,
+,Set a responsive viewport for mobile devices,"<meta name=""viewport"" content=""width=device-width, initial-scale=1"">",Sample Snippets/HTML,sample|html,html,,
+,Group related content into a semantic section,"<section>
+  <h2>About</h2>
+  <p>Some content.</p>
+</section>",Sample Snippets/HTML,sample|html,html,,
+,Add a comment that will not render on the page,<!-- this is a comment -->,Sample Snippets/HTML,sample|html,html,,
+,Create a button that runs JavaScript when clicked,"<button onclick=""doSomething()"">Click me</button>",Sample Snippets/HTML,sample|html,html,,
+,Embed a YouTube video via iframe,"<iframe src=""https://www.youtube.com/embed/VIDEO_ID""></iframe>",Sample Snippets/HTML,sample|html,html,,
+,Set the page title shown in the browser tab,<title>My Page</title>,Sample Snippets/HTML,sample|html,html,,
+,Create a styleable container div with a class,"<div class=""card"">
+  Content goes here
+</div>",Sample Snippets/HTML,sample|html,html,,
+,Add a favicon to the page,"<link rel=""icon"" href=""favicon.ico"">",Sample Snippets/HTML,sample|html,html,,

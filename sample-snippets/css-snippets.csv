@@ -1,0 +1,42 @@
+id,title,body,folder,tags,language,created_at,updated_at
+,Set the text color and background color of an element,"color: #1a1a1a;
+background-color: #ffffff;",Sample Snippets/CSS,sample|css,css,,
+,Center a block element horizontally,margin: 0 auto;,Sample Snippets/CSS,sample|css,css,,
+,Center content both horizontally and vertically with flexbox,"display: flex;
+justify-content: center;
+align-items: center;",Sample Snippets/CSS,sample|css,css,,
+,Create a responsive three-column grid layout,"display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 16px;",Sample Snippets/CSS,sample|css,css,,
+,Add rounded corners to an element,border-radius: 8px;,Sample Snippets/CSS,sample|css,css,,
+,Add a soft drop shadow to an element,"box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);",Sample Snippets/CSS,sample|css,css,,
+,Set a custom font with sensible fallbacks,"font-family: ""Work Sans"", ""Helvetica Neue"", Arial, sans-serif;",Sample Snippets/CSS,sample|css,css,,
+,Change an element's style when the mouse hovers over it,".button:hover {
+  background-color: #0f62fe;
+}",Sample Snippets/CSS,sample|css,css,,
+,Hide an element from the page entirely,display: none;,Sample Snippets/CSS,sample|css,css,,
+,Make an element's width fill its container up to a max size,"width: 100%;
+max-width: 600px;",Sample Snippets/CSS,sample|css,css,,
+,Apply different styles on small screens,"@media (max-width: 600px) {
+  .sidebar { display: none; }
+}",Sample Snippets/CSS,sample|css,css,,
+,Define reusable colors as CSS custom properties,":root {
+  --primary: #0f62fe;
+}",Sample Snippets/CSS,sample|css,css,,
+,Smoothly animate a property when it changes,transition: all 0.2s ease;,Sample Snippets/CSS,sample|css,css,,
+,Nudge an element from its normal position without affecting layout,"position: relative;
+top: 10px;",Sample Snippets/CSS,sample|css,css,,
+,Pin an element to a corner of its nearest positioned ancestor,"position: absolute;
+top: 0;
+right: 0;",Sample Snippets/CSS,sample|css,css,,
+,"Add spacing inside an element, between its border and content",padding: 16px;,Sample Snippets/CSS,sample|css,css,,
+,"Add spacing outside an element, between it and its neighbors",margin: 16px;,Sample Snippets/CSS,sample|css,css,,
+,Truncate overflowing text with an ellipsis,"overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;",Sample Snippets/CSS,sample|css,css,,
+,Style every other row in a table for readability,"tr:nth-child(even) {
+  background: #f4f4f4;
+}",Sample Snippets/CSS,sample|css,css,,
+,Make padding count toward an element's total width instead of adding to it,"* {
+  box-sizing: border-box;
+}",Sample Snippets/CSS,sample|css,css,,

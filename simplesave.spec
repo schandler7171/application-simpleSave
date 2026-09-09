@@ -69,7 +69,7 @@ exe = EXE(
     upx=False,
     console=False,                 # windowed
     disable_windowed_traceback=False,
-    target_arch=None,              # set to "universal2" if you have a universal2 PySide6 wheel
+    target_arch="universal2",      # builds a single binary that runs on Intel and Apple Silicon
     codesign_identity=None,
     entitlements_file=None,
 )
