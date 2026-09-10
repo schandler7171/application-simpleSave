@@ -60,6 +60,9 @@ DEFAULT_PREFS = {
     # Python) are auto-imported once on first launch. Left False forever
     # skips re-seeding, even if the user deletes them afterward.
     "seeded_sample_snippets": False,
+    # Whether the editor's Folder/Language/Tags row is expanded. Collapsed
+    # by default so a snippet reads as just a title + code.
+    "details_expanded": False,
 }
 
 

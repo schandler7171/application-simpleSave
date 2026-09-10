@@ -228,13 +228,15 @@ class Database:
 
         tag_ids = list(tag_ids or [])
         if tag_ids:
+            # Union, not intersection: a snippet matches if it has ANY of the
+            # selected tags. Selecting multiple tags broadens the results
+            # (e.g. "html" + "css") rather than requiring a snippet tagged
+            # with every one of them at once (which usually matches nothing).
             placeholders = ",".join("?" * len(tag_ids))
             where.append(
-                f"s.id IN (SELECT snippet_id FROM snippet_tags WHERE tag_id IN ({placeholders}) "
-                f"GROUP BY snippet_id HAVING COUNT(DISTINCT tag_id) = ?)"
+                f"s.id IN (SELECT DISTINCT snippet_id FROM snippet_tags WHERE tag_id IN ({placeholders}))"
             )
             params.extend(tag_ids)
-            params.append(len(tag_ids))
 
         sql = "SELECT s.* FROM snippets s"
         if where:

@@ -223,14 +223,33 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(16, 16, 16, 16)
         v.setSpacing(8)
 
-        # title
+        # title, styled as a heading (see QLineEdit#TitleInput in theme.py) so
+        # a snippet reads as "description, then code" rather than a form.
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+
         self._title_edit = QLineEdit()
+        self._title_edit.setObjectName("TitleInput")
         self._title_edit.setPlaceholderText("Title")
         self._title_edit.textChanged.connect(self._schedule_autosave)
-        v.addWidget(self._title_edit)
+        title_row.addWidget(self._title_edit, 1)
 
-        # folder + language + tags row
-        meta = QHBoxLayout()
+        # Folder / Language / Tags are metadata, not part of the reading
+        # view -- collapsed behind a disclosure toggle by default so the
+        # main view stays just "title + code".
+        self._details_toggle_btn = QPushButton()
+        self._details_toggle_btn.setProperty("variant", "ghost")
+        self._details_toggle_btn.setCheckable(True)
+        self._details_toggle_btn.setChecked(bool(self.prefs.get("details_expanded", False)))
+        self._details_toggle_btn.clicked.connect(self._toggle_details)
+        title_row.addWidget(self._details_toggle_btn)
+
+        v.addLayout(title_row)
+
+        # folder + language + tags row (collapsible)
+        self._meta_widget = QWidget()
+        meta = QHBoxLayout(self._meta_widget)
+        meta.setContentsMargins(0, 4, 0, 4)
         meta.setSpacing(8)
 
         meta.addWidget(QLabel("Folder:"))
@@ -263,7 +282,9 @@ class MainWindow(QMainWindow):
         add_tag_btn.clicked.connect(self._add_tag_to_current)
         meta.addWidget(add_tag_btn)
 
-        v.addLayout(meta)
+        v.addWidget(self._meta_widget)
+        self._meta_widget.setVisible(self._details_toggle_btn.isChecked())
+        self._update_details_toggle_text()
 
         # editor
         self._editor = QPlainTextEdit()
@@ -298,6 +319,17 @@ class MainWindow(QMainWindow):
 
         v.addLayout(bottom)
         return pane
+
+    def _toggle_details(self) -> None:
+        expanded = self._details_toggle_btn.isChecked()
+        self._meta_widget.setVisible(expanded)
+        self._update_details_toggle_text()
+        self.prefs["details_expanded"] = expanded
+        config.save_prefs(self.prefs)
+
+    def _update_details_toggle_text(self) -> None:
+        expanded = self._details_toggle_btn.isChecked()
+        self._details_toggle_btn.setText("\u25be Details" if expanded else "\u25b8 Details")
 
     def _wire_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+N"), self, activated=self._new_snippet)
