@@ -167,24 +167,39 @@ QPushButton[variant="danger"]:hover {{
     background-color: {layer_02};
 }}
 
-QListWidget, QTreeWidget {{
+QListWidget, QTreeWidget, QTableWidget {{
     background-color: {layer_01};
     border: none;
     outline: none;
+    gridline-color: {border_subtle};
 }}
 
-QListWidget::item, QTreeWidget::item {{
+QListWidget::item, QTreeWidget::item, QTableWidget::item {{
     padding: 10px 12px;
     border-bottom: 1px solid {border_subtle};
 }}
 
-QListWidget::item:selected, QTreeWidget::item:selected {{
+QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {{
     background-color: {layer_03};
     color: {text_primary};
 }}
 
-QListWidget::item:hover, QTreeWidget::item:hover {{
+QListWidget::item:hover, QTreeWidget::item:hover, QTableWidget::item:hover {{
     background-color: {layer_02};
+}}
+
+QHeaderView::section {{
+    background-color: {layer_02};
+    color: {text_secondary};
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid {border_subtle};
+    border-right: 1px solid {border_subtle};
+}}
+
+QTableWidget QTableCornerButton::section {{
+    background-color: {layer_02};
+    border: none;
 }}
 
 QScrollBar:vertical {{
