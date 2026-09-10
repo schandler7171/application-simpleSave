@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QDesktopServices, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -431,11 +431,14 @@ class MainWindow(QMainWindow):
             snippets = [s for s in snippets if s.folder_id is None]
 
         for s in snippets:
-            item = QListWidgetItem(s.title or "(untitled)")
+            item = QListWidgetItem()
             item.setData(Qt.UserRole, s.id)
             tag_names = ", ".join(t.name for t in s.tags)
             item.setToolTip(tag_names)
+            row = self._build_snippet_row(s)
+            item.setSizeHint(row.sizeHint())
             self._snippet_list.addItem(item)
+            self._snippet_list.setItemWidget(item, row)
 
         self._snippet_list.blockSignals(False)
 
@@ -450,6 +453,39 @@ class MainWindow(QMainWindow):
             self._snippet_list.setCurrentRow(0)
         else:
             self._load_into_editor(None)
+
+    def _build_snippet_row(self, s: Snippet) -> QWidget:
+        """List row: the snippet (code) first, its description second --
+        the reverse of a plain title-only row, so browsing shows what the
+        snippet actually does before you have to click into it.
+        """
+        row = QWidget()
+        lay = QVBoxLayout(row)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(3)
+
+        lines = (s.body or "").strip().splitlines()
+        preview = lines[0].strip() if lines else ""
+        if not preview:
+            preview = "(empty)"
+        truncated = len(lines) > 1 or len(preview) > 80
+        if len(preview) > 80:
+            preview = preview[:77] + "..."
+        elif truncated:
+            preview = preview + "  \u2026"
+
+        code_label = QLabel(preview)
+        code_label.setObjectName("snippetRowCode")
+        mono = QFont("Space Mono")
+        mono.setStyleHint(QFont.Monospace)
+        code_label.setFont(mono)
+        lay.addWidget(code_label)
+
+        desc_label = QLabel(s.title or "(untitled)")
+        desc_label.setProperty("role", "secondary")
+        lay.addWidget(desc_label)
+
+        return row
 
     # ---------- selection handlers ----------
 
