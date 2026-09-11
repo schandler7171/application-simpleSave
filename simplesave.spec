@@ -98,6 +98,7 @@ app = BUNDLE(
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "NSHumanReadableCopyright": "Copyright (c) 2026 Scott Chandler.",
+        "LSApplicationCategoryType": "public.app-category.productivity",
         # Avoid spurious mic / camera / files permission prompts: we use none.
     },
 )
