@@ -54,6 +54,10 @@ class MainWindow(QMainWindow):
         self._active_tag_ids: set[int] = set(prefs.get("active_tag_ids") or [])
         self._search_text: str = ""
         self._suspend_autosave: bool = False
+        # Snippet table sort state -- Description ascending by default,
+        # matching the original alphabetized-index ordering.
+        self._sort_column: int = 1
+        self._sort_ascending: bool = True
 
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setSingleShot(True)
@@ -114,16 +118,6 @@ class MainWindow(QMainWindow):
         tb.setContentsMargins(0, 0, 0, 0)
         tb.setSpacing(6)
 
-        self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Search…")
-        self._search_edit.setFixedWidth(220)
-        self._search_edit.textChanged.connect(self._on_search_changed)
-        tb.addWidget(self._search_edit)
-
-        new_btn = QPushButton("+ New")
-        new_btn.clicked.connect(self._new_snippet)
-        tb.addWidget(new_btn)
-
         new_tag_btn = QPushButton("+ Tag")
         new_tag_btn.setProperty("variant", "secondary")
         new_tag_btn.clicked.connect(self._new_tag)
@@ -170,10 +164,27 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
 
-        header = QLabel("Snippets")
-        header.setProperty("role", "heading")
-        header.setContentsMargins(12, 12, 12, 8)
-        v.addWidget(header)
+        # A small toolbar sits above the column headers, like a web app's
+        # table controls: search on the left, the primary add action on
+        # the right.
+        list_toolbar = QWidget()
+        list_toolbar.setObjectName("listToolbar")
+        lt = QHBoxLayout(list_toolbar)
+        lt.setContentsMargins(12, 10, 12, 10)
+        lt.setSpacing(8)
+
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText("Search snippets…")
+        self._search_edit.textChanged.connect(self._on_search_changed)
+        lt.addWidget(self._search_edit, 1)
+
+        add_btn = QPushButton("+   Add New Snippet")
+        add_btn.setProperty("variant", "primary")
+        add_btn.setCursor(Qt.PointingHandCursor)
+        add_btn.clicked.connect(self._new_snippet)
+        lt.addWidget(add_btn)
+
+        v.addWidget(list_toolbar)
 
         self._snippet_list = QTableWidget(0, 3)
         self._snippet_list.setHorizontalHeaderLabels(["Snippet", "Description", ""])
@@ -185,6 +196,7 @@ class MainWindow(QMainWindow):
         self._snippet_list.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._snippet_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._snippet_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._snippet_list.setAlternatingRowColors(True)
         # Snippet and Description are freely resizable (including the
         # divider between them) rather than auto-stretching, which blocked
         # dragging that boundary. The trailing Copy column stays a fixed,
@@ -196,6 +208,12 @@ class MainWindow(QMainWindow):
         self._snippet_list.setColumnWidth(0, 460)
         self._snippet_list.setColumnWidth(1, 420)
         self._snippet_list.setColumnWidth(2, 84)
+        # Click a header to sort by it (click again to flip direction) --
+        # the Copy column ignores clicks, it isn't sortable data.
+        self._snippet_list.horizontalHeader().setSortIndicatorShown(True)
+        self._snippet_list.horizontalHeader().setSectionsClickable(True)
+        self._snippet_list.horizontalHeader().setCursor(Qt.PointingHandCursor)
+        self._snippet_list.horizontalHeader().sectionClicked.connect(self._on_header_clicked)
         self._snippet_list.itemSelectionChanged.connect(self._on_snippet_selected)
         self._snippet_list.cellDoubleClicked.connect(self._on_snippet_double_clicked)
         v.addWidget(self._snippet_list, 1)
@@ -361,10 +379,6 @@ class MainWindow(QMainWindow):
             self._folder_combo.addItem(f.name, f.id)
         self._folder_combo.blockSignals(False)
 
-    # Sentinel Qt.UserRole value for the pinned "+ New Snippet" row -- an
-    # int id can never equal this, so it's safe to compare directly.
-    _NEW_ROW = "__new_snippet_row__"
-
     def _reload_snippets(self) -> None:
         self._snippet_list.blockSignals(True)
         self._snippet_list.setRowCount(0)
@@ -374,24 +388,18 @@ class MainWindow(QMainWindow):
             search=self._search_text or None,
         )
 
-        # Alphabetized like an A-Z reference index, not most-recent-first --
-        # this list is for browsing/scanning, not tracking recent edits.
-        snippets.sort(key=lambda s: (s.title or "").lower())
+        # Sort by whichever column header was last clicked (Description
+        # ascending by default -- an A-Z reference index, not
+        # most-recent-first).
+        if self._sort_column == 0:
+            key_fn = lambda s: self._snippet_preview(s.body).lower()
+        else:
+            key_fn = lambda s: (s.title or "").lower()
+        snippets.sort(key=key_fn, reverse=not self._sort_ascending)
 
-        self._snippet_list.setRowCount(len(snippets) + 1)
+        self._snippet_list.setRowCount(len(snippets))
 
-        # Row 0: a full-width "+ Add New Snippet" bar, spanning every
-        # column -- as unmissable as typing into a spreadsheet's next blank
-        # row, not just another (easy-to-miss) list entry.
-        self._snippet_list.setSpan(0, 0, 1, 3)
-        self._snippet_list.setRowHeight(0, 52)
-        add_item = QTableWidgetItem()
-        add_item.setData(Qt.UserRole, self._NEW_ROW)
-        self._snippet_list.setItem(0, 0, add_item)
-        self._snippet_list.setCellWidget(0, 0, self._build_add_row())
-
-        for offset, s in enumerate(snippets):
-            row_idx = offset + 1
+        for row_idx, s in enumerate(snippets):
             tag_names = ", ".join(t.name for t in s.tags)
 
             # Plain items (not a custom widget) render as literal text --
@@ -417,28 +425,34 @@ class MainWindow(QMainWindow):
             self._snippet_list.setItem(row_idx, 2, copy_placeholder)
             self._snippet_list.setCellWidget(row_idx, 2, self._build_copy_button(s.id))
 
+        self._snippet_list.horizontalHeader().setSortIndicator(
+            self._sort_column,
+            Qt.AscendingOrder if self._sort_ascending else Qt.DescendingOrder,
+        )
+
         self._snippet_list.blockSignals(False)
 
         # try to restore selection on current snippet
         if self._current_snippet is not None:
-            for i in range(1, self._snippet_list.rowCount()):
+            for i in range(self._snippet_list.rowCount()):
                 if self._snippet_list.item(i, 0).data(Qt.UserRole) == self._current_snippet.id:
                     self._snippet_list.selectRow(i)
                     return
 
-        if self._snippet_list.rowCount() > 1:
-            self._snippet_list.selectRow(1)
+        if self._snippet_list.rowCount() > 0:
+            self._snippet_list.selectRow(0)
         else:
             self._load_into_editor(None)
 
-    def _build_add_row(self) -> QWidget:
-        """A full-width, unmistakably clickable bar -- the spreadsheet
-        equivalent of a blank next row you just start typing into."""
-        btn = QPushButton("+   Add New Snippet")
-        btn.setProperty("variant", "add-row")
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.clicked.connect(self._new_snippet)
-        return btn
+    def _on_header_clicked(self, column: int) -> None:
+        if column == 2:
+            return  # the Copy column isn't sortable data
+        if column == self._sort_column:
+            self._sort_ascending = not self._sort_ascending
+        else:
+            self._sort_column = column
+            self._sort_ascending = True
+        self._reload_snippets()
 
     def _build_copy_button(self, snippet_id: int) -> QWidget:
         """A small Copy / Copied text link, matching the pattern on most
@@ -450,7 +464,7 @@ class MainWindow(QMainWindow):
         btn = QPushButton("Copy")
         btn.setProperty("variant", "copy-link")
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setFixedWidth(64)
+        btn.setFixedWidth(76)
         btn.clicked.connect(lambda _checked=False, sid=snippet_id, b=btn: self._copy_snippet_by_id(sid, b))
         lay.addWidget(btn, 0, Qt.AlignCenter)
         return cell
@@ -497,9 +511,6 @@ class MainWindow(QMainWindow):
             self._load_into_editor(None)
             return
         sid = item.data(Qt.UserRole)
-        if sid == self._NEW_ROW:
-            self._new_snippet()
-            return
         snippet = self.db.get_snippet(int(sid))
         self._load_into_editor(snippet)
         if snippet is not None:
@@ -509,7 +520,7 @@ class MainWindow(QMainWindow):
         if column == 2:
             return  # the Copy column handles its own click
         item = self._snippet_list.item(row, 0)
-        if item is None or item.data(Qt.UserRole) == self._NEW_ROW:
+        if item is None:
             return
         # Selection (single-click) already loaded + copied the snippet;
         # double-click just moves focus into the field you meant to change,
@@ -817,7 +828,7 @@ class MainWindow(QMainWindow):
         self._reveal_path(out_path)
 
     def _export_dialog(self) -> None:
-        if self._snippet_list.rowCount() <= 1:  # row 0 is always the "+ New Snippet" row
+        if self._snippet_list.rowCount() == 0:
             QMessageBox.information(self, "Nothing to export", "No snippets in the current view.")
             return
         fmt, ok = QInputDialog.getItem(
@@ -827,8 +838,8 @@ class MainWindow(QMainWindow):
         if not ok:
             return
 
-        # collect snippets currently visible in the list (skip the "+ New Snippet" row)
-        ids = [self._snippet_list.item(i, 0).data(Qt.UserRole) for i in range(1, self._snippet_list.rowCount())]
+        # collect snippets currently visible in the list
+        ids = [self._snippet_list.item(i, 0).data(Qt.UserRole) for i in range(self._snippet_list.rowCount())]
         snippets = [self.db.get_snippet(int(i)) for i in ids]
         snippets = [s for s in snippets if s is not None]
 

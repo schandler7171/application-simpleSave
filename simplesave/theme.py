@@ -85,7 +85,7 @@ QLineEdit, QPlainTextEdit, QTextEdit, QComboBox {{
     background-color: {layer_02};
     color: {text_primary};
     border: 1px solid {border_subtle};
-    border-radius: 0;
+    border-radius: 10px;
     padding: 6px 8px;
     selection-background-color: {interactive};
     selection-color: {text_on_color};
@@ -124,7 +124,7 @@ QPushButton {{
     color: {text_primary};
     border: 1px solid {border_subtle};
     padding: 6px 12px;
-    border-radius: 0;
+    border-radius: 10px;
 }}
 
 QPushButton:hover {{
@@ -179,7 +179,7 @@ QPushButton[variant="add-row"] {{
     font-weight: 600;
     text-align: left;
     padding-left: 16px;
-    border-radius: 0;
+    border-radius: 10px;
 }}
 
 QPushButton[variant="add-row"]:hover {{
@@ -189,15 +189,16 @@ QPushButton[variant="add-row"]:hover {{
 /* Small "Copy" / "Copied" text link per snippet row, matching the pattern
    on most code-snippet websites. */
 QPushButton[variant="copy-link"] {{
-    background: transparent;
+    background-color: {layer_03};
     border: none;
     color: {interactive};
     font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 0;
+    padding: 6px 12px;
+    border-radius: 10px;
 }}
 
 QPushButton[variant="copy-link"]:hover {{
+    background-color: {border_strong};
     color: {interactive_hover};
 }}
 
@@ -229,6 +230,15 @@ QHeaderView::section {{
     border: none;
     border-bottom: 1px solid {border_subtle};
     border-right: 1px solid {border_subtle};
+}}
+
+QHeaderView::section:hover {{
+    background-color: {layer_03};
+    color: {text_primary};
+}}
+
+QTableWidget {{
+    alternate-background-color: {layer_02};
 }}
 
 QTableWidget QTableCornerButton::section {{
