@@ -189,7 +189,10 @@ QPushButton[variant="add-row"]:hover {{
 /* Small "Copy" / "Copied" text link per snippet row, matching the pattern
    on most code-snippet websites. */
 QPushButton[variant="copy-link"] {{
-    background-color: {layer_03};
+    /* border_strong reads as a clearly darker grey in light mode and a
+       clearly lighter grey in dark mode -- layer_03 was too close to the
+       light-theme background to read as a real button. */
+    background-color: {border_strong};
     border: none;
     color: {interactive};
     font-weight: 600;
@@ -198,8 +201,8 @@ QPushButton[variant="copy-link"] {{
 }}
 
 QPushButton[variant="copy-link"]:hover {{
-    background-color: {border_strong};
-    color: {interactive_hover};
+    background-color: {interactive};
+    color: {text_on_color};
 }}
 
 QListWidget, QTreeWidget, QTableWidget {{
