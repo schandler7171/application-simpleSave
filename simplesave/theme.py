@@ -167,6 +167,40 @@ QPushButton[variant="danger"]:hover {{
     background-color: {layer_02};
 }}
 
+/* The "+ Add New Snippet" bar spanning the top row of the snippet table --
+   styled as an obvious control (accent left edge, accent text), not
+   another data row. */
+QPushButton[variant="add-row"] {{
+    background-color: {layer_02};
+    border: none;
+    border-left: 3px solid {interactive};
+    border-bottom: 1px solid {border_subtle};
+    color: {interactive};
+    font-weight: 600;
+    text-align: left;
+    padding-left: 16px;
+    border-radius: 0;
+}}
+
+QPushButton[variant="add-row"]:hover {{
+    background-color: {layer_03};
+}}
+
+/* Small "Copy" / "Copied" text link per snippet row, matching the pattern
+   on most code-snippet websites. */
+QPushButton[variant="copy-link"] {{
+    background: transparent;
+    border: none;
+    color: {interactive};
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 0;
+}}
+
+QPushButton[variant="copy-link"]:hover {{
+    color: {interactive_hover};
+}}
+
 QListWidget, QTreeWidget, QTableWidget {{
     background-color: {layer_01};
     border: none;
@@ -175,7 +209,7 @@ QListWidget, QTreeWidget, QTableWidget {{
 }}
 
 QListWidget::item, QTreeWidget::item, QTableWidget::item {{
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid {border_subtle};
 }}
 

@@ -175,21 +175,27 @@ class MainWindow(QMainWindow):
         header.setContentsMargins(12, 12, 12, 8)
         v.addWidget(header)
 
-        self._snippet_list = QTableWidget(0, 2)
-        self._snippet_list.setHorizontalHeaderLabels(["Snippet", "Description"])
+        self._snippet_list = QTableWidget(0, 3)
+        self._snippet_list.setHorizontalHeaderLabels(["Snippet", "Description", ""])
         self._snippet_list.verticalHeader().setVisible(False)
+        # Real breathing room per row -- the old default height was cramped
+        # enough to look broken rather than just dense.
+        self._snippet_list.verticalHeader().setDefaultSectionSize(44)
         self._snippet_list.setShowGrid(False)
         self._snippet_list.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._snippet_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._snippet_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # Both columns freely resizable (including the divider between them)
-        # rather than the description column auto-stretching, which blocked
-        # dragging that boundary.
+        # Snippet and Description are freely resizable (including the
+        # divider between them) rather than auto-stretching, which blocked
+        # dragging that boundary. The trailing Copy column stays a fixed,
+        # narrow width -- it's a button, not data.
         self._snippet_list.horizontalHeader().setStretchLastSection(False)
         self._snippet_list.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self._snippet_list.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
-        self._snippet_list.setColumnWidth(0, 420)
+        self._snippet_list.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self._snippet_list.setColumnWidth(0, 460)
         self._snippet_list.setColumnWidth(1, 420)
+        self._snippet_list.setColumnWidth(2, 84)
         self._snippet_list.itemSelectionChanged.connect(self._on_snippet_selected)
         self._snippet_list.cellDoubleClicked.connect(self._on_snippet_double_clicked)
         v.addWidget(self._snippet_list, 1)
@@ -374,35 +380,42 @@ class MainWindow(QMainWindow):
 
         self._snippet_list.setRowCount(len(snippets) + 1)
 
-        # Row 0: a standing "+ New Snippet" row instead of a separate,
-        # easy-to-miss toolbar button -- click it like any other row.
-        new_snippet_item = QTableWidgetItem("+ New Snippet")
-        new_snippet_item.setData(Qt.UserRole, self._NEW_ROW)
-        new_snippet_item.setForeground(QColor("#0f62fe"))
-        font = new_snippet_item.font()
-        font.setItalic(True)
-        font.setBold(True)
-        new_snippet_item.setFont(font)
-        self._snippet_list.setItem(0, 0, new_snippet_item)
-        new_desc_item = QTableWidgetItem("Click to add a snippet")
-        new_desc_item.setData(Qt.UserRole, self._NEW_ROW)
-        new_desc_item.setForeground(QColor("#0f62fe"))
-        self._snippet_list.setItem(0, 1, new_desc_item)
+        # Row 0: a full-width "+ Add New Snippet" bar, spanning every
+        # column -- as unmissable as typing into a spreadsheet's next blank
+        # row, not just another (easy-to-miss) list entry.
+        self._snippet_list.setSpan(0, 0, 1, 3)
+        self._snippet_list.setRowHeight(0, 52)
+        add_item = QTableWidgetItem()
+        add_item.setData(Qt.UserRole, self._NEW_ROW)
+        self._snippet_list.setItem(0, 0, add_item)
+        self._snippet_list.setCellWidget(0, 0, self._build_add_row())
 
         for offset, s in enumerate(snippets):
             row_idx = offset + 1
             tag_names = ", ".join(t.name for t in s.tags)
 
-            snippet_item = QTableWidgetItem()
+            # Plain items (not a custom widget) render as literal text --
+            # a QLabel would auto-detect any preview starting with "<" as
+            # HTML and silently render it as a (invisible) table/div/link/
+            # meta/title tag instead of showing the code.
+            snippet_item = QTableWidgetItem(self._snippet_preview(s.body))
             snippet_item.setData(Qt.UserRole, s.id)
             snippet_item.setToolTip(tag_names)
+            mono = QFont("Space Mono")
+            mono.setStyleHint(QFont.Monospace)
+            snippet_item.setFont(mono)
             self._snippet_list.setItem(row_idx, 0, snippet_item)
-            self._snippet_list.setCellWidget(row_idx, 0, self._build_snippet_cell(s))
 
             desc_item = QTableWidgetItem(s.title or "(untitled)")
             desc_item.setData(Qt.UserRole, s.id)
             desc_item.setToolTip(tag_names)
             self._snippet_list.setItem(row_idx, 1, desc_item)
+
+            copy_placeholder = QTableWidgetItem()
+            copy_placeholder.setData(Qt.UserRole, s.id)
+            copy_placeholder.setFlags(Qt.ItemIsEnabled)
+            self._snippet_list.setItem(row_idx, 2, copy_placeholder)
+            self._snippet_list.setCellWidget(row_idx, 2, self._build_copy_button(s.id))
 
         self._snippet_list.blockSignals(False)
 
@@ -418,41 +431,51 @@ class MainWindow(QMainWindow):
         else:
             self._load_into_editor(None)
 
-    def _build_snippet_cell(self, s: Snippet) -> QWidget:
-        """Snippet column cell: a code preview plus a small copy button --
-        the row is still click-to-copy as a whole, but this makes copying
-        one specific snippet discoverable without relying on that.
-        """
+    def _build_add_row(self) -> QWidget:
+        """A full-width, unmistakably clickable bar -- the spreadsheet
+        equivalent of a blank next row you just start typing into."""
+        btn = QPushButton("+   Add New Snippet")
+        btn.setProperty("variant", "add-row")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(self._new_snippet)
+        return btn
+
+    def _build_copy_button(self, snippet_id: int) -> QWidget:
+        """A small Copy / Copied text link, matching the pattern on most
+        code-snippet websites, instead of an icon glyph that can render
+        blank if the font lacks that character."""
         cell = QWidget()
         lay = QHBoxLayout(cell)
-        lay.setContentsMargins(12, 0, 6, 0)
-        lay.setSpacing(6)
-
-        label = QLabel(self._snippet_preview(s.body))
-        mono = QFont("Space Mono")
-        mono.setStyleHint(QFont.Monospace)
-        label.setFont(mono)
-        lay.addWidget(label, 1)
-
-        copy_btn = QPushButton("\u29c9")
-        copy_btn.setProperty("variant", "ghost")
-        copy_btn.setFixedSize(24, 24)
-        copy_btn.setCursor(Qt.PointingHandCursor)
-        copy_btn.setToolTip("Copy this snippet")
-        copy_btn.clicked.connect(lambda _checked=False, sid=s.id: self._copy_snippet_by_id(sid))
-        lay.addWidget(copy_btn)
-
+        lay.setContentsMargins(0, 0, 0, 0)
+        btn = QPushButton("Copy")
+        btn.setProperty("variant", "copy-link")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedWidth(64)
+        btn.clicked.connect(lambda _checked=False, sid=snippet_id, b=btn: self._copy_snippet_by_id(sid, b))
+        lay.addWidget(btn, 0, Qt.AlignCenter)
         return cell
 
-    def _copy_snippet_by_id(self, snippet_id: int) -> None:
+    def _copy_snippet_by_id(self, snippet_id: int, button: Optional[QPushButton] = None) -> None:
         snippet = self.db.get_snippet(int(snippet_id))
         if snippet is None:
             return
         try:
             pyperclip.copy(snippet.body)
             self._status_label.setText("copied to clipboard")
+            if button is not None:
+                button.setText("Copied")
+                QTimer.singleShot(1200, lambda b=button: self._reset_copy_button(b))
         except Exception as e:
             QMessageBox.warning(self, "Clipboard error", str(e))
+
+    @staticmethod
+    def _reset_copy_button(button: QPushButton) -> None:
+        # The row may have been rebuilt (search/filter/reload) before this
+        # timer fires, in which case the button no longer exists.
+        try:
+            button.setText("Copy")
+        except RuntimeError:
+            pass
 
     @staticmethod
     def _snippet_preview(body: str) -> str:
@@ -483,6 +506,8 @@ class MainWindow(QMainWindow):
             self._copy_current()
 
     def _on_snippet_double_clicked(self, row: int, column: int) -> None:
+        if column == 2:
+            return  # the Copy column handles its own click
         item = self._snippet_list.item(row, 0)
         if item is None or item.data(Qt.UserRole) == self._NEW_ROW:
             return
