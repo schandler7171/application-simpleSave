@@ -15,6 +15,14 @@ from simplesave.ui.main_window import MainWindow
 def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName(config.APP_NAME)
+    # Force the Fusion style, which Qt draws entirely itself. Native
+    # platform styles (macOS's Aqua-based style in particular) only
+    # partially honor QPushButton stylesheet rules -- background-color,
+    # border-radius and padding get silently ignored or fought with a
+    # native bezel drawn underneath, which is why button styling here
+    # kept looking "off" no matter what QSS was tried. Fusion fixes that
+    # at the source instead of chasing individual button symptoms.
+    app.setStyle("Fusion")
 
     prefs = config.load_prefs()
     active_theme = prefs["theme"]

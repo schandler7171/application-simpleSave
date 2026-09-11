@@ -224,7 +224,7 @@ QPushButton[variant="add-row"]:hover {{
    not a bordered "Copy" pill. A soft rounded highlight on hover is the
    only feedback until it's clicked. */
 QPushButton[variant="icon-ghost"] {{
-    background: transparent;
+    background-color: transparent;
     border: none;
     border-radius: 8px;
     padding: 0;

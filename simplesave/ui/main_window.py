@@ -1,12 +1,13 @@
 """Main window: tag bar, toolbar, sidebar (folders + tags), snippet list, editor."""
 from __future__ import annotations
 
+import math
 import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize, QTimer, QUrl, Signal
+from PySide6.QtCore import Qt, QPointF, QSize, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -53,6 +54,11 @@ from simplesave.models import Snippet, Tag
 from simplesave.ui.dialogs import NewTagDialog, PreferencesDialog
 from simplesave.ui.highlighter import LANGUAGE_CHOICES, SnippetHighlighter
 from simplesave.ui.tag_pill import TagPill
+
+# All top-toolbar controls (tag pills, icon buttons, text buttons) share
+# this exact height so the toolbar reads as one consistent row instead of
+# a jumble of differently-sized controls with different natural heights.
+_TOOLBAR_CONTROL_HEIGHT = 32
 
 
 class MainWindow(QMainWindow):
@@ -133,11 +139,15 @@ class MainWindow(QMainWindow):
 
         new_tag_btn = QPushButton("+ Tag")
         new_tag_btn.setProperty("variant", "secondary")
+        new_tag_btn.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
         new_tag_btn.clicked.connect(self._new_tag)
         tb.addWidget(new_tag_btn)
 
-        theme_btn = QPushButton("☾" if self.prefs["theme"] == "dark" else "☼")
+        theme_btn = QPushButton()
         theme_btn.setProperty("variant", "ghost")
+        theme_btn.setIcon(self._theme_icon(self.prefs["theme"]))
+        theme_btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
+        theme_btn.setFixedSize(_TOOLBAR_CONTROL_HEIGHT, _TOOLBAR_CONTROL_HEIGHT)
         theme_btn.setToolTip("Toggle theme")
         theme_btn.clicked.connect(self._toggle_theme)
         self._theme_btn = theme_btn
@@ -145,6 +155,7 @@ class MainWindow(QMainWindow):
 
         template_btn = QPushButton("Template")
         template_btn.setProperty("variant", "secondary")
+        template_btn.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
         template_btn.setToolTip(
             "Save a blank CSV in the exact format simpleSave expects,\n"
             "so you can fill it in and bulk-import it back."
@@ -154,16 +165,19 @@ class MainWindow(QMainWindow):
 
         import_btn = QPushButton("Import")
         import_btn.setProperty("variant", "secondary")
+        import_btn.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
         import_btn.clicked.connect(self._import_files)
         tb.addWidget(import_btn)
 
         export_btn = QPushButton("Export")
         export_btn.setProperty("variant", "secondary")
+        export_btn.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
         export_btn.clicked.connect(self._export_dialog)
         tb.addWidget(export_btn)
 
         prefs_btn = QPushButton("Preferences")
         prefs_btn.setProperty("variant", "ghost")
+        prefs_btn.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
         prefs_btn.clicked.connect(self._open_preferences)
         tb.addWidget(prefs_btn)
 
@@ -380,6 +394,7 @@ class MainWindow(QMainWindow):
         insert_at = 0
         for t in tags:
             pill = TagPill(t, active=(t.id in self._active_tag_ids))
+            pill.setFixedHeight(_TOOLBAR_CONTROL_HEIGHT)
             pill.clicked.connect(self._toggle_tag_filter)
             self._tag_bar_layout.insertWidget(insert_at, pill)
             insert_at += 1
@@ -489,6 +504,33 @@ class MainWindow(QMainWindow):
             path.lineTo(size / 2 - 1, size - 4)
             path.lineTo(size - 3, 3.5)
             painter.drawPath(path)
+        elif kind == "moon":
+            # A crescent drawn as a filled circle with an offset circle
+            # subtracted out -- not a "☾" font glyph, which can silently
+            # fall back to the wrong character on a system that lacks it
+            # (the exact bug that broke the old text "Copy" button).
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(color))
+            outer = QPainterPath()
+            outer.addEllipse(2.0, 2.0, size - 4.0, size - 4.0)
+            inner = QPainterPath()
+            inner.addEllipse(5.0, 1.0, size - 4.0, size - 4.0)
+            painter.drawPath(outer.subtracted(inner))
+        elif kind == "sun":
+            pen.setWidthF(1.4)
+            pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(pen)
+            painter.setBrush(QColor(color))
+            cx = cy = size / 2
+            r = 3.0
+            painter.drawEllipse(QPointF(cx, cy), r, r)
+            for i in range(8):
+                angle = math.radians(i * 45)
+                x1 = cx + math.cos(angle) * (r + 1.6)
+                y1 = cy + math.sin(angle) * (r + 1.6)
+                x2 = cx + math.cos(angle) * (r + 4.0)
+                y2 = cy + math.sin(angle) * (r + 4.0)
+                painter.drawLine(QPointF(x1, y1), QPointF(x2, y2))
         else:
             pen.setWidthF(1.3)
             painter.setPen(pen)
@@ -498,6 +540,10 @@ class MainWindow(QMainWindow):
             painter.drawRoundedRect(5, 1, size - 6, size - 6, 2, 2)
         painter.end()
         return QIcon(pm)
+
+    def _theme_icon(self, theme_name: str) -> QIcon:
+        tokens = theme.tokens(theme_name)
+        return self._glyph_icon("moon" if theme_name == "dark" else "sun", tokens["text_primary"])
 
     def _build_copy_button(self, snippet_id: int) -> QWidget:
         """A plain icon, no visible button chrome -- click to copy, a
@@ -781,7 +827,7 @@ class MainWindow(QMainWindow):
         self.prefs["theme"] = new_theme
         config.save_prefs(self.prefs)
         self._apply_theme()
-        self._theme_btn.setText("☾" if new_theme == "dark" else "☼")
+        self._theme_btn.setIcon(self._theme_icon(new_theme))
         self._highlighter.set_theme(new_theme)
         # tag pills bake colors in their stylesheet — rebuild them; the
         # copy icons are baked pixmaps too, so the row list needs a
