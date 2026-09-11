@@ -6,8 +6,21 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QKeySequence, QShortcut, QTextCursor
+from PySide6.QtCore import Qt, QSize, QTimer, QUrl, Signal
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QDesktopServices,
+    QFont,
+    QIcon,
+    QKeySequence,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QShortcut,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -207,7 +220,7 @@ class MainWindow(QMainWindow):
         self._snippet_list.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
         self._snippet_list.setColumnWidth(0, 460)
         self._snippet_list.setColumnWidth(1, 420)
-        self._snippet_list.setColumnWidth(2, 104)
+        self._snippet_list.setColumnWidth(2, 56)
         # Click a header to sort by it (click again to flip direction) --
         # the Copy column ignores clicks, it isn't sortable data.
         self._snippet_list.horizontalHeader().setSortIndicatorShown(True)
@@ -454,19 +467,53 @@ class MainWindow(QMainWindow):
             self._sort_ascending = True
         self._reload_snippets()
 
+    _ICON_SIZE = 16
+
+    def _glyph_icon(self, kind: str, color: str) -> QIcon:
+        """Draw a tiny copy/checkmark glyph on the fly instead of relying
+        on a font character (which can render blank if the font lacks it)
+        or a bundled image asset (one more thing to package correctly)."""
+        size = self._ICON_SIZE
+        pm = QPixmap(size, size)
+        pm.fill(Qt.transparent)
+        painter = QPainter(pm)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(color))
+        if kind == "check":
+            pen.setWidthF(1.6)
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(pen)
+            path = QPainterPath()
+            path.moveTo(3, size / 2)
+            path.lineTo(size / 2 - 1, size - 4)
+            path.lineTo(size - 3, 3.5)
+            painter.drawPath(path)
+        else:
+            pen.setWidthF(1.3)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            # Two overlapping rounded squares -- the universal "copy" glyph.
+            painter.drawRoundedRect(2, 4, size - 6, size - 6, 2, 2)
+            painter.drawRoundedRect(5, 1, size - 6, size - 6, 2, 2)
+        painter.end()
+        return QIcon(pm)
+
     def _build_copy_button(self, snippet_id: int) -> QWidget:
-        """A small Copy / Copied text link, matching the pattern on most
-        code-snippet websites, instead of an icon glyph that can render
-        blank if the font lacks that character."""
+        """A plain icon, no visible button chrome -- click to copy, a
+        quick checkmark confirms it. Minimal, the way copy affordances
+        work on most code-snippet websites (no bordered "Copy" pill)."""
         cell = QWidget()
         lay = QHBoxLayout(cell)
         lay.setContentsMargins(0, 0, 0, 0)
-        btn = QPushButton("Copy")
-        btn.setProperty("variant", "copy-link")
+        tokens = theme.tokens(self.prefs["theme"])
+        btn = QPushButton()
+        btn.setIcon(self._glyph_icon("copy", tokens["text_secondary"]))
+        btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
+        btn.setProperty("variant", "icon-ghost")
+        btn.setFixedSize(32, 32)
         btn.setCursor(Qt.PointingHandCursor)
-        # Fixed width sized for "Copied" (the longer of the two states) so
-        # the button doesn't resize/jump when clicked.
-        btn.setFixedWidth(90)
+        btn.setToolTip("Copy")
         btn.clicked.connect(lambda _checked=False, sid=snippet_id, b=btn: self._copy_snippet_by_id(sid, b))
         lay.addWidget(btn, 0, Qt.AlignCenter)
         return cell
@@ -479,17 +526,20 @@ class MainWindow(QMainWindow):
             pyperclip.copy(snippet.body)
             self._status_label.setText("copied to clipboard")
             if button is not None:
-                button.setText("Copied")
+                tokens = theme.tokens(self.prefs["theme"])
+                button.setIcon(self._glyph_icon("check", tokens["success"]))
+                button.setToolTip("Copied")
                 QTimer.singleShot(1200, lambda b=button: self._reset_copy_button(b))
         except Exception as e:
             QMessageBox.warning(self, "Clipboard error", str(e))
 
-    @staticmethod
-    def _reset_copy_button(button: QPushButton) -> None:
+    def _reset_copy_button(self, button: QPushButton) -> None:
         # The row may have been rebuilt (search/filter/reload) before this
         # timer fires, in which case the button no longer exists.
         try:
-            button.setText("Copy")
+            tokens = theme.tokens(self.prefs["theme"])
+            button.setIcon(self._glyph_icon("copy", tokens["text_secondary"]))
+            button.setToolTip("Copy")
         except RuntimeError:
             pass
 
@@ -733,10 +783,13 @@ class MainWindow(QMainWindow):
         self._apply_theme()
         self._theme_btn.setText("☾" if new_theme == "dark" else "☼")
         self._highlighter.set_theme(new_theme)
-        # tag pills bake colors in their stylesheet — rebuild them
+        # tag pills bake colors in their stylesheet — rebuild them; the
+        # copy icons are baked pixmaps too, so the row list needs a
+        # refresh as well or they'd keep the old theme's color.
         self._reload_tag_bar()
         if self._current_snippet is not None:
             self._rebuild_editor_tag_pills(self._current_snippet.tags)
+        self._reload_snippets()
 
     def _open_preferences(self) -> None:
         dlg = PreferencesDialog(self, prefs=self.prefs, on_change=self._on_prefs_changed)

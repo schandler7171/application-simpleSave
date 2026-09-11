@@ -219,26 +219,23 @@ QPushButton[variant="add-row"]:hover {{
     background-color: {layer_03};
 }}
 
-/* Small "Copy" / "Copied" button per snippet row. Same bordered-pill
-   shape, border, radius and padding as every other secondary button in
-   the app (Template/Import/Export/+Tag) so it reads as a normal, native
-   control instead of a mismatched floating chip -- layer_03 (one step
-   up from both the normal AND the zebra-striped alternate row
-   backgrounds) keeps it visible against either, and the accent text
-   marks it as the copy action specifically. */
-QPushButton[variant="copy-link"] {{
-    background-color: {layer_03};
-    border: 1px solid {border_strong};
-    color: {accent_text};
-    font-weight: 600;
-    padding: 8px 14px;
-    border-radius: 10px;
+/* The per-row copy control: a plain icon with no visible button chrome
+   at rest -- like the copy affordance on most code-snippet websites,
+   not a bordered "Copy" pill. A soft rounded highlight on hover is the
+   only feedback until it's clicked. */
+QPushButton[variant="icon-ghost"] {{
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 0;
 }}
 
-QPushButton[variant="copy-link"]:hover {{
-    background-color: {interactive};
-    border: 1px solid {interactive};
-    color: {text_on_color};
+QPushButton[variant="icon-ghost"]:hover {{
+    background-color: {layer_03};
+}}
+
+QPushButton[variant="icon-ghost"]:pressed {{
+    background-color: {border_strong};
 }}
 
 QListWidget, QTreeWidget, QTableWidget {{
