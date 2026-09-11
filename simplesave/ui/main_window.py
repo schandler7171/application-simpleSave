@@ -47,7 +47,7 @@ from PySide6.QtWidgets import (
 
 import pyperclip
 
-from simplesave import config, io_formats, theme
+from simplesave import __version__, config, io_formats, theme
 from simplesave.db import Database
 from simplesave.models import Snippet, Tag
 from simplesave.ui.dialogs import NewTagDialog, PreferencesDialog
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.db = db
         self.prefs = prefs
-        self.setWindowTitle("simpleSave")
+        self.setWindowTitle(f"simpleSave v{__version__}")
         self.resize(1200, 760)
 
         self._current_snippet: Optional[Snippet] = None
