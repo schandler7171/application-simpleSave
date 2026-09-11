@@ -550,6 +550,12 @@ class MainWindow(QMainWindow):
         quick checkmark confirms it. Minimal, the way copy affordances
         work on most code-snippet websites (no bordered "Copy" pill)."""
         cell = QWidget()
+        # Plain QWidgets pick up the app-wide "QWidget { background-color:
+        # ... }" rule and paint an opaque rectangle, which showed up as a
+        # persistent dark box around the icon that didn't match the row's
+        # own (possibly zebra-striped) background. This cell is only a
+        # layout container, so it should never paint anything of its own.
+        cell.setStyleSheet("background-color: transparent;")
         lay = QHBoxLayout(cell)
         lay.setContentsMargins(0, 0, 0, 0)
         tokens = theme.tokens(self.prefs["theme"])
