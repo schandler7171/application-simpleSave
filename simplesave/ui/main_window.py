@@ -207,7 +207,7 @@ class MainWindow(QMainWindow):
         self._snippet_list.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
         self._snippet_list.setColumnWidth(0, 460)
         self._snippet_list.setColumnWidth(1, 420)
-        self._snippet_list.setColumnWidth(2, 84)
+        self._snippet_list.setColumnWidth(2, 104)
         # Click a header to sort by it (click again to flip direction) --
         # the Copy column ignores clicks, it isn't sortable data.
         self._snippet_list.horizontalHeader().setSortIndicatorShown(True)
@@ -464,7 +464,9 @@ class MainWindow(QMainWindow):
         btn = QPushButton("Copy")
         btn.setProperty("variant", "copy-link")
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setFixedWidth(76)
+        # Fixed width sized for "Copied" (the longer of the two states) so
+        # the button doesn't resize/jump when clicked.
+        btn.setFixedWidth(90)
         btn.clicked.connect(lambda _checked=False, sid=snippet_id, b=btn: self._copy_snippet_by_id(sid, b))
         lay.addWidget(btn, 0, Qt.AlignCenter)
         return cell

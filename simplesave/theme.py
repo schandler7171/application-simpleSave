@@ -186,22 +186,25 @@ QPushButton[variant="add-row"]:hover {{
     background-color: {layer_03};
 }}
 
-/* Small "Copy" / "Copied" text link per snippet row, matching the pattern
-   on most code-snippet websites. */
+/* Small "Copy" / "Copied" button per snippet row. Same bordered-pill
+   shape, border, radius and padding as every other secondary button in
+   the app (Template/Import/Export/+Tag) so it reads as a normal, native
+   control instead of a mismatched floating chip -- layer_03 (one step
+   up from both the normal AND the zebra-striped alternate row
+   backgrounds) keeps it visible against either, and the blue text marks
+   it as the copy action specifically. */
 QPushButton[variant="copy-link"] {{
-    /* border_strong reads as a clearly darker grey in light mode and a
-       clearly lighter grey in dark mode -- layer_03 was too close to the
-       light-theme background to read as a real button. */
-    background-color: {border_strong};
-    border: none;
+    background-color: {layer_03};
+    border: 1px solid {border_strong};
     color: {interactive};
     font-weight: 600;
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 10px;
 }}
 
 QPushButton[variant="copy-link"]:hover {{
     background-color: {interactive};
+    border: 1px solid {interactive};
     color: {text_on_color};
 }}
 
