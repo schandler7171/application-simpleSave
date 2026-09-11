@@ -447,11 +447,21 @@ class MainWindow(QMainWindow):
             desc_item.setToolTip(tag_names)
             self._snippet_list.setItem(row_idx, 1, desc_item)
 
-            copy_placeholder = QTableWidgetItem()
-            copy_placeholder.setData(Qt.UserRole, s.id)
-            copy_placeholder.setFlags(Qt.ItemIsEnabled)
-            self._snippet_list.setItem(row_idx, 2, copy_placeholder)
-            self._snippet_list.setCellWidget(row_idx, 2, self._build_copy_button(s.id))
+            # Column 2 is a pure cell widget (the copy icon) -- it used
+            # to also get a QTableWidgetItem here (nothing ever read it;
+            # every id lookup elsewhere reads column 0's UserRole data
+            # instead). Having both an item and a widget on the same cell
+            # is a known-fragile combination in Qt's item views: the
+            # item delegate's own row-bottom border can get painted over
+            # the widget, which is what was clipping the bottom of the
+            # copy icon.
+            copy_cell = self._build_copy_button(s.id)
+            self._snippet_list.setCellWidget(row_idx, 2, copy_cell)
+            # Belt-and-suspenders alongside removing the stray item above:
+            # make sure this widget is always the topmost thing painted in
+            # its cell, in case anything else in the row gets repainted
+            # after it (e.g. during a scroll or theme refresh).
+            copy_cell.raise_()
 
         self._snippet_list.horizontalHeader().setSortIndicator(
             self._sort_column,

@@ -93,8 +93,8 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "simpleSave",
         "CFBundleDisplayName": "simpleSave",
-        "CFBundleShortVersionString": "0.1.3",
-        "CFBundleVersion": "0.1.3",
+        "CFBundleShortVersionString": "0.1.4",
+        "CFBundleVersion": "0.1.4",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "NSHumanReadableCopyright": "Copyright (c) 2026 Scott Chandler.",
