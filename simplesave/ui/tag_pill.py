@@ -7,6 +7,12 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from simplesave.models import Tag
 
+# Inactive pills are greyed out (Carbon dark-theme layer/text tokens) rather
+# than shown in full color with just a border -- color means "this filter
+# is on" / "this tag belongs to the snippet", not "here is a tag that exists".
+_INACTIVE_BG = "#3a3a3a"
+_INACTIVE_TEXT = "#8d8d8d"
+
 
 def _text_color_for(bg_hex: str) -> str:
     """Return '#ffffff' or '#161616' depending on luminance of bg."""
@@ -51,21 +57,23 @@ class TagPill(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        text_color = _text_color_for(self._tag.color)
-        border = "2px solid #ffffff" if self._active else "2px solid transparent"
+        if self._active:
+            bg, text_color = self._tag.color, _text_color_for(self._tag.color)
+        else:
+            bg, text_color = _INACTIVE_BG, _INACTIVE_TEXT
 
         self._label = QLabel(f"  {self._tag.name}  ")
         self._label.setStyleSheet(
             f"""
             QLabel {{
-                background: {self._tag.color};
+                background: {bg};
                 color: {text_color};
                 border-radius: 9px;
                 padding: 1px 8px;
                 font-family: "Space Mono", "Menlo", "Consolas", monospace;
                 font-size: 12px;
                 font-weight: 500;
-                border: {border};
+                border: none;
             }}
             """
         )
@@ -79,7 +87,7 @@ class TagPill(QWidget):
             btn.setStyleSheet(
                 f"""
                 QPushButton {{
-                    background: {self._tag.color};
+                    background: {bg};
                     color: {text_color};
                     border: none;
                     border-top-right-radius: 9px;

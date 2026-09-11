@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QKeySequence, QShortcut, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -28,8 +28,6 @@ from PySide6.QtWidgets import (
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -54,7 +52,6 @@ class MainWindow(QMainWindow):
 
         self._current_snippet: Optional[Snippet] = None
         self._active_tag_ids: set[int] = set(prefs.get("active_tag_ids") or [])
-        self._active_folder_id: Optional[int] = prefs.get("active_folder_id")
         self._search_text: str = ""
         self._suspend_autosave: bool = False
 
@@ -79,13 +76,11 @@ class MainWindow(QMainWindow):
         v.addWidget(self._build_top_bar())
 
         splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self._build_sidebar())
         splitter.addWidget(self._build_list_pane())
         splitter.addWidget(self._build_editor_pane())
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 3)
-        splitter.setSizes([220, 280, 700])
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([820, 480])
         v.addWidget(splitter, 1)
 
     def _build_top_bar(self) -> QWidget:
@@ -168,40 +163,6 @@ class MainWindow(QMainWindow):
         h.addWidget(toolbar)
         return bar
 
-    def _build_sidebar(self) -> QWidget:
-        side = QWidget()
-        side.setObjectName("sidebar")
-        v = QVBoxLayout(side)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-
-        header = QLabel("Folders")
-        header.setProperty("role", "heading")
-        header.setContentsMargins(12, 12, 12, 8)
-        v.addWidget(header)
-
-        self._folder_tree = QTreeWidget()
-        self._folder_tree.setHeaderHidden(True)
-        self._folder_tree.itemSelectionChanged.connect(self._on_folder_selected)
-        v.addWidget(self._folder_tree, 1)
-
-        actions = QWidget()
-        ah = QHBoxLayout(actions)
-        ah.setContentsMargins(8, 8, 8, 8)
-        ah.setSpacing(6)
-        new_folder = QPushButton("+ Folder")
-        new_folder.setProperty("variant", "ghost")
-        new_folder.clicked.connect(self._new_folder)
-        ah.addWidget(new_folder)
-        del_folder = QPushButton("Delete")
-        del_folder.setProperty("variant", "ghost")
-        del_folder.clicked.connect(self._delete_folder)
-        ah.addWidget(del_folder)
-        ah.addStretch(1)
-        v.addWidget(actions)
-
-        return side
-
     def _build_list_pane(self) -> QWidget:
         wrap = QWidget()
         wrap.setObjectName("sidebar")
@@ -221,10 +182,16 @@ class MainWindow(QMainWindow):
         self._snippet_list.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._snippet_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._snippet_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Both columns freely resizable (including the divider between them)
+        # rather than the description column auto-stretching, which blocked
+        # dragging that boundary.
+        self._snippet_list.horizontalHeader().setStretchLastSection(False)
         self._snippet_list.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
-        self._snippet_list.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self._snippet_list.setColumnWidth(0, 280)
+        self._snippet_list.horizontalHeader().setSectionResizeMode(1, QHeaderView.Interactive)
+        self._snippet_list.setColumnWidth(0, 420)
+        self._snippet_list.setColumnWidth(1, 420)
         self._snippet_list.itemSelectionChanged.connect(self._on_snippet_selected)
+        self._snippet_list.cellDoubleClicked.connect(self._on_snippet_double_clicked)
         v.addWidget(self._snippet_list, 1)
 
         return wrap
@@ -355,7 +322,6 @@ class MainWindow(QMainWindow):
 
     def _reload_all(self) -> None:
         self._reload_tag_bar()
-        self._reload_folders()
         self._reload_folder_combo()
         self._reload_snippets()
 
@@ -381,48 +347,6 @@ class MainWindow(QMainWindow):
             self._tag_bar_layout.insertWidget(insert_at, pill)
             insert_at += 1
 
-    def _reload_folders(self) -> None:
-        self._folder_tree.blockSignals(True)
-        self._folder_tree.clear()
-
-        all_root = QTreeWidgetItem(["All snippets"])
-        all_root.setData(0, Qt.UserRole, "__all__")
-        self._folder_tree.addTopLevelItem(all_root)
-
-        none_root = QTreeWidgetItem(["Unfiled"])
-        none_root.setData(0, Qt.UserRole, "__none__")
-        self._folder_tree.addTopLevelItem(none_root)
-
-        folders = self.db.list_folders()
-        items_by_id: dict[int, QTreeWidgetItem] = {}
-        # first pass: roots
-        for f in folders:
-            item = QTreeWidgetItem([f.name])
-            item.setData(0, Qt.UserRole, f.id)
-            items_by_id[f.id] = item  # type: ignore[index]
-            if f.parent_id is None:
-                self._folder_tree.addTopLevelItem(item)
-        # second pass: children
-        for f in folders:
-            if f.parent_id is not None:
-                parent = items_by_id.get(f.parent_id)
-                child = items_by_id.get(f.id)  # type: ignore[arg-type]
-                if parent is not None and child is not None:
-                    parent.addChild(child)
-
-        self._folder_tree.expandAll()
-
-        # restore selection
-        if self._active_folder_id is None:
-            self._folder_tree.setCurrentItem(all_root)
-        else:
-            target = items_by_id.get(self._active_folder_id)
-            if target is not None:
-                self._folder_tree.setCurrentItem(target)
-            else:
-                self._folder_tree.setCurrentItem(all_root)
-        self._folder_tree.blockSignals(False)
-
     def _reload_folder_combo(self) -> None:
         self._folder_combo.blockSignals(True)
         self._folder_combo.clear()
@@ -431,34 +355,49 @@ class MainWindow(QMainWindow):
             self._folder_combo.addItem(f.name, f.id)
         self._folder_combo.blockSignals(False)
 
+    # Sentinel Qt.UserRole value for the pinned "+ New Snippet" row -- an
+    # int id can never equal this, so it's safe to compare directly.
+    _NEW_ROW = "__new_snippet_row__"
+
     def _reload_snippets(self) -> None:
         self._snippet_list.blockSignals(True)
         self._snippet_list.setRowCount(0)
 
         snippets = self.db.list_snippets(
-            folder_id=self._active_folder_id if self._active_folder_id != "__none__" else None,
             tag_ids=list(self._active_tag_ids) or None,
             search=self._search_text or None,
         )
-        if self._active_folder_id == "__none__":
-            snippets = [s for s in snippets if s.folder_id is None]
 
         # Alphabetized like an A-Z reference index, not most-recent-first --
         # this list is for browsing/scanning, not tracking recent edits.
         snippets.sort(key=lambda s: (s.title or "").lower())
 
-        mono = QFont("Space Mono")
-        mono.setStyleHint(QFont.Monospace)
+        self._snippet_list.setRowCount(len(snippets) + 1)
 
-        self._snippet_list.setRowCount(len(snippets))
-        for row_idx, s in enumerate(snippets):
+        # Row 0: a standing "+ New Snippet" row instead of a separate,
+        # easy-to-miss toolbar button -- click it like any other row.
+        new_snippet_item = QTableWidgetItem("+ New Snippet")
+        new_snippet_item.setData(Qt.UserRole, self._NEW_ROW)
+        new_snippet_item.setForeground(QColor("#0f62fe"))
+        font = new_snippet_item.font()
+        font.setItalic(True)
+        font.setBold(True)
+        new_snippet_item.setFont(font)
+        self._snippet_list.setItem(0, 0, new_snippet_item)
+        new_desc_item = QTableWidgetItem("Click to add a snippet")
+        new_desc_item.setData(Qt.UserRole, self._NEW_ROW)
+        new_desc_item.setForeground(QColor("#0f62fe"))
+        self._snippet_list.setItem(0, 1, new_desc_item)
+
+        for offset, s in enumerate(snippets):
+            row_idx = offset + 1
             tag_names = ", ".join(t.name for t in s.tags)
 
-            snippet_item = QTableWidgetItem(self._snippet_preview(s.body))
+            snippet_item = QTableWidgetItem()
             snippet_item.setData(Qt.UserRole, s.id)
             snippet_item.setToolTip(tag_names)
-            snippet_item.setFont(mono)
             self._snippet_list.setItem(row_idx, 0, snippet_item)
+            self._snippet_list.setCellWidget(row_idx, 0, self._build_snippet_cell(s))
 
             desc_item = QTableWidgetItem(s.title or "(untitled)")
             desc_item.setData(Qt.UserRole, s.id)
@@ -469,15 +408,51 @@ class MainWindow(QMainWindow):
 
         # try to restore selection on current snippet
         if self._current_snippet is not None:
-            for i in range(self._snippet_list.rowCount()):
+            for i in range(1, self._snippet_list.rowCount()):
                 if self._snippet_list.item(i, 0).data(Qt.UserRole) == self._current_snippet.id:
                     self._snippet_list.selectRow(i)
                     return
 
-        if self._snippet_list.rowCount() > 0:
-            self._snippet_list.selectRow(0)
+        if self._snippet_list.rowCount() > 1:
+            self._snippet_list.selectRow(1)
         else:
             self._load_into_editor(None)
+
+    def _build_snippet_cell(self, s: Snippet) -> QWidget:
+        """Snippet column cell: a code preview plus a small copy button --
+        the row is still click-to-copy as a whole, but this makes copying
+        one specific snippet discoverable without relying on that.
+        """
+        cell = QWidget()
+        lay = QHBoxLayout(cell)
+        lay.setContentsMargins(12, 0, 6, 0)
+        lay.setSpacing(6)
+
+        label = QLabel(self._snippet_preview(s.body))
+        mono = QFont("Space Mono")
+        mono.setStyleHint(QFont.Monospace)
+        label.setFont(mono)
+        lay.addWidget(label, 1)
+
+        copy_btn = QPushButton("\u29c9")
+        copy_btn.setProperty("variant", "ghost")
+        copy_btn.setFixedSize(24, 24)
+        copy_btn.setCursor(Qt.PointingHandCursor)
+        copy_btn.setToolTip("Copy this snippet")
+        copy_btn.clicked.connect(lambda _checked=False, sid=s.id: self._copy_snippet_by_id(sid))
+        lay.addWidget(copy_btn)
+
+        return cell
+
+    def _copy_snippet_by_id(self, snippet_id: int) -> None:
+        snippet = self.db.get_snippet(int(snippet_id))
+        if snippet is None:
+            return
+        try:
+            pyperclip.copy(snippet.body)
+            self._status_label.setText("copied to clipboard")
+        except Exception as e:
+            QMessageBox.warning(self, "Clipboard error", str(e))
 
     @staticmethod
     def _snippet_preview(body: str) -> str:
@@ -493,33 +468,34 @@ class MainWindow(QMainWindow):
 
     # ---------- selection handlers ----------
 
-    def _on_folder_selected(self) -> None:
-        items = self._folder_tree.selectedItems()
-        if not items:
-            return
-        data = items[0].data(0, Qt.UserRole)
-        if data == "__all__":
-            self._active_folder_id = None
-        elif data == "__none__":
-            self._active_folder_id = "__none__"  # type: ignore[assignment]
-        else:
-            self._active_folder_id = int(data)
-        self.prefs["active_folder_id"] = (
-            self._active_folder_id if isinstance(self._active_folder_id, int) else None
-        )
-        config.save_prefs(self.prefs)
-        self._reload_snippets()
-
     def _on_snippet_selected(self) -> None:
         item = self._snippet_list.currentItem()
         if item is None:
             self._load_into_editor(None)
             return
         sid = item.data(Qt.UserRole)
+        if sid == self._NEW_ROW:
+            self._new_snippet()
+            return
         snippet = self.db.get_snippet(int(sid))
         self._load_into_editor(snippet)
         if snippet is not None:
             self._copy_current()
+
+    def _on_snippet_double_clicked(self, row: int, column: int) -> None:
+        item = self._snippet_list.item(row, 0)
+        if item is None or item.data(Qt.UserRole) == self._NEW_ROW:
+            return
+        # Selection (single-click) already loaded + copied the snippet;
+        # double-click just moves focus into the field you meant to change,
+        # rather than editing the truncated preview text in the cell itself
+        # -- risky for a multi-line snippet body.
+        if column == 1:
+            self._title_edit.setFocus()
+            self._title_edit.selectAll()
+        else:
+            self._editor.setFocus()
+            self._editor.moveCursor(QTextCursor.End)
 
     def _toggle_tag_filter(self, tag_id: int) -> None:
         if tag_id in self._active_tag_ids:
@@ -574,7 +550,7 @@ class MainWindow(QMainWindow):
                 w.deleteLater()
         insert_at = 0
         for t in tags:
-            pill = TagPill(t, removable=True)
+            pill = TagPill(t, removable=True, active=True)
             pill.removed.connect(self._remove_tag_from_current)
             self._editor_tags_layout.insertWidget(insert_at, pill)
             insert_at += 1
@@ -626,8 +602,7 @@ class MainWindow(QMainWindow):
     # ---------- actions ----------
 
     def _new_snippet(self) -> None:
-        folder_id = self._active_folder_id if isinstance(self._active_folder_id, int) else None
-        s = self.db.create_snippet(title="Untitled", body="", folder_id=folder_id)
+        s = self.db.create_snippet(title="Untitled", body="", folder_id=None)
         self._reload_snippets()
         self._current_snippet = s
         # select row
@@ -678,34 +653,6 @@ class MainWindow(QMainWindow):
         self.db.set_snippet_tags(self._current_snippet.id, [i for i in new_ids if i is not None])
         self._current_snippet = self.db.get_snippet(self._current_snippet.id)
         self._rebuild_editor_tag_pills(self._current_snippet.tags if self._current_snippet else [])
-
-    def _new_folder(self) -> None:
-        name, ok = QInputDialog.getText(self, "New folder", "Folder name:")
-        if not ok or not name.strip():
-            return
-        self.db.create_folder(name.strip())
-        self._reload_folders()
-        self._reload_folder_combo()
-
-    def _delete_folder(self) -> None:
-        if not isinstance(self._active_folder_id, int):
-            return
-        confirm = QMessageBox.question(
-            self,
-            "Delete folder",
-            "Delete this folder? Snippets inside will become unfiled.",
-        )
-        if confirm != QMessageBox.Yes:
-            return
-        # detach snippets first so they aren't cascade-deleted… actually our
-        # schema sets folder_id to NULL on folder delete, so we can just delete.
-        self.db.delete_folder(self._active_folder_id)
-        self._active_folder_id = None
-        self.prefs["active_folder_id"] = None
-        config.save_prefs(self.prefs)
-        self._reload_folders()
-        self._reload_folder_combo()
-        self._reload_snippets()
 
     def _copy_current(self) -> None:
         if self._current_snippet is None:
@@ -845,7 +792,7 @@ class MainWindow(QMainWindow):
         self._reveal_path(out_path)
 
     def _export_dialog(self) -> None:
-        if self._snippet_list.rowCount() == 0:
+        if self._snippet_list.rowCount() <= 1:  # row 0 is always the "+ New Snippet" row
             QMessageBox.information(self, "Nothing to export", "No snippets in the current view.")
             return
         fmt, ok = QInputDialog.getItem(
@@ -855,8 +802,8 @@ class MainWindow(QMainWindow):
         if not ok:
             return
 
-        # collect snippets currently visible in the list
-        ids = [self._snippet_list.item(i, 0).data(Qt.UserRole) for i in range(self._snippet_list.rowCount())]
+        # collect snippets currently visible in the list (skip the "+ New Snippet" row)
+        ids = [self._snippet_list.item(i, 0).data(Qt.UserRole) for i in range(1, self._snippet_list.rowCount())]
         snippets = [self.db.get_snippet(int(i)) for i in ids]
         snippets = [s for s in snippets if s is not None]
 
