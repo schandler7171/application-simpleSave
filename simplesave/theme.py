@@ -1,4 +1,16 @@
-"""Carbon-inspired theme tokens and QSS stylesheets."""
+"""Carbon Design System theme tokens and QSS stylesheets.
+
+Token values are IBM Carbon's actual Gray 100 (dark) and White (light)
+theme values -- not approximations -- including the parts people usually
+get wrong when they eyeball "Carbon-ish" colors: the accent/link blue
+used for TEXT is a lighter blue in dark mode (Blue 40, #78a9ff) than the
+blue used for solid button fills (Blue 60, #0f62fe), because a mid blue
+that reads fine as a filled button with white text on it does not have
+enough contrast to read well as blue TEXT on a near-black background.
+Same idea for the danger/error color used as button text. Fill colors
+("interactive") stay identical across themes; text/accent colors
+("accent_text") do not.
+"""
 from __future__ import annotations
 
 
@@ -9,16 +21,23 @@ DARK = {
     "layer_03":          "#525252",
     "border_subtle":     "#393939",
     "border_strong":     "#6f6f6f",
-    # Softer than pure white so long reading sessions in dark mode are easier
-    # on the eyes (matches common editor foreground colors like VS Code's).
-    "text_primary":      "#d4d4d4",
+    "text_primary":      "#f4f4f4",
     "text_secondary":    "#c6c6c6",
     "text_placeholder":  "#6f6f6f",
     "text_on_color":     "#ffffff",
+    # Solid fills (buttons, selection highlight) -- identical across themes;
+    # white text on top of these has strong contrast either way.
     "interactive":       "#0f62fe",
     "interactive_hover": "#0353e9",
+    # Text/accent color -- Blue 40, the correct Carbon g100 link color.
+    # Using the fill blue here instead (a common mistake) reads as dull
+    # and low-contrast against a near-black background.
+    "accent_text":       "#78a9ff",
+    "accent_text_hover": "#a6c8ff",
     "focus":             "#ffffff",
-    "danger":            "#fa4d56",
+    # Text-error (Red 40) -- lighter than the icon/fill red so it stays
+    # legible as button text on dark surfaces.
+    "danger":            "#ff8389",
     "success":           "#42be65",
 }
 
@@ -35,6 +54,10 @@ LIGHT = {
     "text_on_color":     "#ffffff",
     "interactive":       "#0f62fe",
     "interactive_hover": "#0353e9",
+    # Blue 60 is the correct link color against a white/near-white
+    # background, i.e. the same blue as the button fill.
+    "accent_text":       "#0f62fe",
+    "accent_text_hover": "#0043ce",
     "focus":             "#0f62fe",
     "danger":            "#da1e28",
     "success":           "#24a148",
@@ -58,18 +81,28 @@ QMainWindow, QWidget {{
     color: {text_primary};
 }}
 
-#TopBar {{
+/* Panels sit one step up from the page background, giving the app real
+   depth instead of one flat, undifferentiated slab of color -- this is
+   the core Carbon "layering" idea. Object names below must match
+   setObjectName(...) in main_window.py exactly (Qt selectors are
+   case-sensitive). */
+#tagBar {{
     background-color: {layer_01};
     border-bottom: 1px solid {border_subtle};
 }}
 
-#Sidebar {{
+#sidebar {{
     background-color: {layer_01};
-    border-right: 1px solid {border_subtle};
 }}
 
-#EditorPane {{
+#listToolbar {{
+    background-color: {layer_01};
+    border-bottom: 1px solid {border_subtle};
+}}
+
+#editorPane {{
     background-color: {background};
+    border-left: 1px solid {border_subtle};
 }}
 
 QLabel {{
@@ -173,9 +206,9 @@ QPushButton[variant="danger"]:hover {{
 QPushButton[variant="add-row"] {{
     background-color: {layer_02};
     border: none;
-    border-left: 3px solid {interactive};
+    border-left: 3px solid {accent_text};
     border-bottom: 1px solid {border_subtle};
-    color: {interactive};
+    color: {accent_text};
     font-weight: 600;
     text-align: left;
     padding-left: 16px;
@@ -191,12 +224,12 @@ QPushButton[variant="add-row"]:hover {{
    the app (Template/Import/Export/+Tag) so it reads as a normal, native
    control instead of a mismatched floating chip -- layer_03 (one step
    up from both the normal AND the zebra-striped alternate row
-   backgrounds) keeps it visible against either, and the blue text marks
-   it as the copy action specifically. */
+   backgrounds) keeps it visible against either, and the accent text
+   marks it as the copy action specifically. */
 QPushButton[variant="copy-link"] {{
     background-color: {layer_03};
     border: 1px solid {border_strong};
-    color: {interactive};
+    color: {accent_text};
     font-weight: 600;
     padding: 8px 14px;
     border-radius: 10px;
